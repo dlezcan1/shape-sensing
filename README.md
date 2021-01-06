@@ -1,2 +1,2 @@
 # shape-sensing
-This is the shape sensing repository developed my Dr. Jin Seob Kim and Dimitri Lezcano
+This is the shape sensing repository developed by Dr. Jin Seob Kim and Dimitri Lezcano
