@@ -1,4 +1,4 @@
-%% main_Diffeq_FP_needle.m
+%% main_Diffeq_FP_needle_data.m
 %
 % Solve the F-P equation for the prob. density of deformation
 %
