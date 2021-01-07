@@ -4,7 +4,7 @@
 %
 % - written by: Dimitri Lezcano
 
-function pos = singlebend_needleshape(curvatures, aa_tip_locs, L, kc_i, w_init_i, theta0)
+function [pos, wv, Rmat, kc, w_init] = singlebend_needleshape(curvatures, aa_tip_locs, L, kc_i, w_init_i, theta0)
 % Input:
 %   - curvatures: list of x-y curvatures measured at each of the AA locations
 %           ( a #AA x 2 matrix ) (1/m)
@@ -13,6 +13,7 @@ function pos = singlebend_needleshape(curvatures, aa_tip_locs, L, kc_i, w_init_i
 %   - L: the needle length (mm)
 %   - kc_i: the initial guess of kappa_c (double)
 %   - w_init_i: the initial guess of w_init (3 x 1 vector, default is [kc_init; 0; 0])
+%   - theta0: the offset insertion angle (double, default is 0)
     
     %% Arguments
     arguments
@@ -50,20 +51,13 @@ function pos = singlebend_needleshape(curvatures, aa_tip_locs, L, kc_i, w_init_i
     aa_base_locs_valid = aa_base_locs(aa_base_locs >= 0);
     [~, s_idx_aa] = min(abs(s' - aa_base_locs_valid));
     curvs_aa = curvatures(aa_base_locs >= 0, :)*1e-3; % convert curvatures to 1/mm
+    curvs_aa = [curvs_aa, zeros(size(curvs_aa, 1), 1)];
     s_aa = s(s_idx_aa);
         
     
     %% Determine w_init and kc from measured curvatures (optimization)
-    % intrinsic curvature values
-    k0 = kc_i * (1 - s/L).^2;
-    w0 = [k0; zeros(2, length(s))];
-    
-    k0_prime = -2*kc_i/L * (1 - s/L);
-    w0_prime = [k0_prime; zeros(2, length(s))];
-    
     % initial cost values
     eta = [w_init_i; kc_i];
-%     wv = fn_intgEP_v1(w_init_i, w0, w0_prime, 0, ds, length(s), B, Binv);
     scalef0 = 1;
     Cval = costfn_shape_singlebend(eta, curvs_aa', s_idx_aa, ds, length(s), B, Binv, scalef0);
     scalef = 1/Cval;
@@ -74,7 +68,7 @@ function pos = singlebend_needleshape(curvatures, aa_tip_locs, L, kc_i, w_init_i
     UB = [0.01*ones(3,1);0.01]; % upper bound
     
     oldopts = optimset('fmincon');
-    options = optimset(oldopts,'Algorithm','interior-point','TolFun',1e-6,'TolX',1e-8,...
+    options = optimset(oldopts,'Algorithm','interior-point','TolFun',1e-8,'TolX',1e-8,...
         'MaxFunEvals',10000);
     [x, fval, exitflag] = fmincon( @(x) costfn_shape_singlebend(x, curvs_aa',...
         s_idx_aa, ds, length(s), B, Binv, scalef),...
@@ -88,8 +82,34 @@ function pos = singlebend_needleshape(curvatures, aa_tip_locs, L, kc_i, w_init_i
     w0 = kc * (1 - s/L).^2;
     w0_prime = -2*kc/L * (1 - s/L);
     
-    
+    [wv, pos, Rmat] = fn_intgEP_w0_Dimitri(w_init, w0, w0_prime, theta0, 0, ds, length(s), B, Binv);
     
     
 end
-    
+
+%% Helper functions
+% cost function for needle shape
+function y = costfn_shape_singlebend(eta,data,s_index_meas,ds,N,B,Binv,scalef) 
+    % unpack the variables
+    w_init = eta(1:3); 
+    kc = eta(4); 
+
+    % arclength parameters
+    L = (N-1)*ds; % in mm 
+    s = [0:ds:L]; 
+
+    % intrinsic curvature (quadratic) 
+    k0 = kc*(1 - s/L).^2; 
+    w0 = [k0;zeros(1,N);zeros(1,N)]; 
+
+    k0prime = -2*kc/L*(1 - s/L); 
+    w0prime = [k0prime;zeros(1,N);zeros(1,N)]; 
+
+    % integration of the E-P equation 
+    wv = fn_intgEP_w0_Dimitri(w_init, w0, w0prime,0,0,ds,N,B,Binv);
+
+    % exclude torsion 
+    yv = wv(1:2,s_index_meas) - data(1:2,:); 
+    y = norm(yv,'fro')^2*scalef; 
+
+end
