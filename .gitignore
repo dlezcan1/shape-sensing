@@ -29,3 +29,9 @@ codegen/
 
 # Octave session info
 octave-workspace
+
+# mp4 generated data files
+*.mp4
+
+# ignore data directory
+data/
