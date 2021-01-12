@@ -13,15 +13,25 @@ save_bool = true;
 
 sigma = 0.001; % gaussian noise uncertainty
 
-directory = "Dimitri/Data/";
-file_base = directory + "DiffEq_Results_sigma_0.0005";
+directory = "../data/";
+file_base = directory + "DiffEq_Results_sigma_0.0025_ideal";
 
 
 %% Load the data
 load(file_base + ".mat");
 
+
+%% Get the mean omega
+mean_w = mean_prob_w(prob, w_i, w_j, w_k);
+
+if isempty(w_init) % default w_init
+    w_init = [kc; 0; 0];
+end
+
+
 %% create an ellipse matrix for each of the s values
 prob_w12 = squeeze(sum(prob, 3)); % sum over w3 axis
+% prob_w12 = prob_w12./sum(prob_w12, [1,2]); % normalize the probability 
 
 [w1_grid, w2_grid] = meshgrid(w_i, w_j);
 
@@ -36,17 +46,20 @@ for l = 1:size(prob_w12, 3)
 end
 
 %% Get the angular deformations for the different parametriz
-theta_vals = 0:pi/4:2*pi-0.001; % the theta values we will use to parametrize the ellipse
+% theta_vals = 0:pi/4:2*pi-0.001; % the theta values we will use to parametrize the ellipse
+theta_vals = linspace(0, 2*pi, 20); % the theta values we will use to parametrize the ellipse
 u = [cos(theta_vals); sin(theta_vals)]; % unit vectors
 
 w_err_mat = zeros(length(theta_vals), 3, length(ellipse_mat)); % #u x dim(w) x #arclength
+w_err_mat(:,3,:) = repmat(reshape(mean_w(3,:), 1, 1, []), length(theta_vals), 1); % assign torsion as mean
 for i = 1:length(u) % iterate over unit vectors
     for l = 1:length(ellipse_mat) % iterate over all of the ellipses
         u_i = u(:,i); % the unit vector to work with
         sigma_mat = 2*ellipse_mat(:,:,l); % the ellipse matrix
         
         % calculate the w value for w1 & w2
-        w12_i = sigma_mat * u_i + mean_mat(:,l);
+%         w12_i = sigma_mat * u_i + mean_mat(:,l);
+        w12_i = sigma_mat * u_i + mean_w(1:2,l);
     
         % append the result
         w_err_mat(i, 1:2, l) = w12_i;
@@ -56,7 +69,7 @@ end
 
 %% Start determining the shape integrations
 % mean shape
-w0 = [mean_mat; zeros(1, size(mean_mat, 2))];
+w0 = mean_w;
 w0_prime = [diff(w0, 1, 2), zeros(3,1)];
 [~,mean_shape,~] = fn_intgEP_w0_Dimitri(w_init, w0, w0_prime, 0, 0, ds, size(mean_mat, 2), B, Binv);
 
@@ -70,7 +83,7 @@ for i = 1:size(w_err_mat, 1)
     % approximate w0_prime
     w0_prime_i = [diff(w0_i, 1, 2), zeros(3,1)];
     
-    % get the shape
+    
     [~,pmat,~] = fn_intgEP_w0_Dimitri(w_init, w0_i, w0_prime_i, 0, 0, ds, size(shape_mat, 3), B, Binv);
     
     shape_mat(i,:,:) = pmat;
@@ -89,7 +102,7 @@ end
 plot3(mean_shape(3,:), mean_shape(2,:), mean_shape(1,:),'r-');
 
 hold off;
-grid on;
+axis equal; grid on;
 xlabel('z'); ylabel('y'); zlabel('x');
 
 

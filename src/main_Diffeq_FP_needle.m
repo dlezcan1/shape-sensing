@@ -4,12 +4,16 @@
 %
 % - written by Dimitri Lezcano
 
+%% Variable set-up
+clear; clc;
+
 global kc L w dw s_l w_i w_j w_k ds sigma A0 G0 deletion_indices
 
+%% saving options 
 save_bool = true;
 
 directory = "Data/";
-file_base = directory + "DiffEq_Results_sigma_%.4f_data";
+file_base = directory + "DiffEq_Results_sigma_%.4f";
 
 %% preamble
 % physical parameters
@@ -24,11 +28,21 @@ Jtor = pi*diam^4/32;
 A0 = Emod*Ibend; 
 G0 = Gmod*Jtor; 
 
+B = diag([A0, A0, G0]);
+Binv = inv(B);
+
 % insertion parameters
 L = 90;
 kc = 0.0025508; %0.003;
-sigma = 0.0005; % gaussian noise uncertainty
-w_init = [ 0.0035703; 0.00072161; -0.0086653 ];
+sigma = 2.5*0.001; % gaussian noise uncertainty
+w_init = []; % ideal case
+% w_init = [ 0.0035703; 0.00072161; -0.0086653 ]; % data
+
+if isempty(w_init)
+    file_base = file_base + "_ideal";
+else
+    file_base = file_base + "_data";
+end
 
 % arclength coordinate
 ds = 1;
@@ -36,8 +50,8 @@ s_l = 0:ds:L;
 N = length(s_l)
 
 % angular deformation coordinates
-dw = 0.001;
-w = -.02:dw:.02;
+dw = 0.002;
+w = -.05:dw:.05;
 M = length(w)
 
 w_i = w; % omega_x vector
@@ -88,8 +102,23 @@ deletion_indices = unique([idxs_i idxs_j idxs_k]);
 % initial boundary condition
 prob = init_probability(w_init); % w1, w2, w3, s | wx, wy, wz, s | i, j, k, l
 
-%% main loop
+%% Test gen_sysmatrix2
+% disp('Gen 1');
+% tic;
+% K1 = gen_sysmatrix(1);
+% toc
+% 
+% disp('Gen 1 Parallel');
+% parpool('local')
+% tic;
+% K2 = gen_sysmatrix(1);
+% toc
+% 
+% dK = full(abs(K1 - K2));
+% fprintf('Max: %.5f, Mean: %.5f\n', max(dK, [], 'all'), mean(dK, 'all'));
+% return;
 
+%% main loop
 h = waitbar(0, 'Please wait...', 'units', 'normalized', 'position', [.4 .455 .2 .09]);
 cum_time = 0; % cumulative time for averaging
 for l = 2:N               % arclength coordinate
@@ -135,7 +164,7 @@ set(gcf,'units','normalized','position', [1/20, 1/20, 18/20, 18/20]);
 w_interp = linspace(min(w), max(w), 150); % for interpolation
 if save_bool
     vidfile = VideoWriter(file_base + "_results.mp4",'MPEG-4');
-    vidfile.FrameRate = 10;
+    vidfile.FrameRate = 2;
     open(vidfile);
 end
 
@@ -338,6 +367,85 @@ function [K, K_sub] = gen_sysmatrix(l)
     end
     
     K = ds * K; % mutiply the division term
+    K_sub = K;
+    
+    % delete the rows and columns for the boundary points
+    K_sub(deletion_indices,:) = []; % rows to delete
+    K_sub(:,deletion_indices) = []; % cols to delete
+    
+end
+
+function [K, K_sub] = gen_sysmatrix2(l)
+% generate the system matrix K * u = f
+%
+% vectorized version
+%
+% Args:
+%   prob is the M x M x M x N tensor
+%   l is the arclength index
+    global w_i w_j w_k s_l ds dw sigma A0 G0 deletion_indices
+    % Iniital setup
+    M_i = length(w_i); M_j = length(w_j); M_k = length(w_k); % variable just in case
+    sz = [M_i, M_j, M_k]; % size of prob. matrix
+    
+    k0 = kappa_0(s_l(l));
+    k0_p = kappa_0_prime(s_l(l));
+    
+    K = sparse(M_i * M_j * M_k, M_i * M_j * M_k);
+    
+    % index values
+    I = (2:M_i-1)';
+    J = (2:M_j-1)';
+    K_idx = (2:M_k-1)';   
+    indxs = cart_product(I, J, K_idx); % matrix of index positions
+
+    
+    % prepare omega vectors values
+    w1 = reshape(w_i, [], 1);
+    w2 = reshape(w_j, [], 1);
+    w3 = reshape(w_k, [], 1);
+    
+    W1 = w1(indxs(:,1)); % vectorized omega1 alighed with indxs
+    W2 = w2(indxs(:,2)); % vectorized omega2 aligned with indxs
+    W3 = w3(indxs(:,3)); % vectorized omega3 aligned with indxs
+    
+    % diagonal elements
+    indxs_ijk = sub2ind([M_i, M_j, M_k], indxs(:,1), indxs(:,2), indxs(:,3));
+    K(sub2ind(size(K), indxs_ijk, indxs_ijk)) = ...
+        (1/ds + 3*sigma^2/dw^2);
+    
+    
+    % index: i
+    indxs_tmp = sub2ind([M_i, M_j, M_k], indxs(:,1)-1, indxs(:,2), indxs(:,3)); % i-1
+    K(sub2ind(size(K), indxs_ijk, indxs_tmp)) = ... 
+        1/2 * (-(k0_p + (A0-G0)/A0 * W2 .* W3)/(dw) - sigma^2/dw^2); % i-1
+    
+    indxs_tmp = sub2ind([M_i, M_j, M_k], indxs(:,1)+1, indxs(:,2), indxs(:,3)); % i+1
+    K(sub2ind(size(K), indxs_ijk, indxs_tmp)) = ...
+        1/2 * ((k0_p + (A0-G0)/A0 * W2 .* W3)/(dw) - sigma^2/dw^2); % i+1
+    
+    % index: j
+    indxs_tmp = sub2ind([M_i, M_j, M_k], indxs(:,1), indxs(:,2)-1, indxs(:,3)); % j -1
+    K(sub2ind(size(K), indxs_ijk, indxs_tmp)) = ... 
+        1/2 * (-(k0 * W3 + (G0-A0)/A0 * W1 .* W3)/(dw) - sigma^2/dw^2); % j-1
+    
+    indxs_tmp = sub2ind([M_i, M_j, M_k], indxs(:,1), indxs(:,2)+1, indxs(:,3)); % j + 1
+    K(sub2ind(size(K), indxs_ijk, indxs_tmp)) = ... 
+        1/2 * ((k0 * W3 + (G0-A0)/A0 * W1 .* W3)/(dw) - sigma^2/dw^2); % j+1
+    
+    % index: k
+    indxs_tmp = sub2ind([M_i, M_j, M_k], indxs(:,1), indxs(:,2), indxs(:,3)-1); % k - 1
+    K(sub2ind(size(K), indxs_ijk, indxs_tmp)) = ... 
+        1/2 * (A0/G0 * k0 * W2/(dw) - sigma^2/dw^2); % k-1
+    
+    indxs_tmp = sub2ind([M_i, M_j, M_k], indxs(:,1), indxs(:,2), indxs(:,3)+1); % k + 1
+    K(sub2ind(size(K), indxs_ijk, indxs_tmp)) = ... 
+        1/2 * (-A0/G0 * k0 * W2/(dw) - sigma^2/dw^2); % k+1
+    
+    clear indxs_tmp indxs_ijk
+    
+    % scale by ds
+    K = ds * K; % multiply the division term
     K_sub = K;
     
     % delete the rows and columns for the boundary points
