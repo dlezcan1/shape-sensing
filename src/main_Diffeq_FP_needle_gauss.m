@@ -12,7 +12,7 @@ clear; clc;
 save_bool = false;
 
 directory = "Data/";
-file_base = directory + "DiffEq_Results_sigma_%.4f_gauss";
+file_base = directory + "DiffEq_Results_sigma_%.4f_gauss-approx";
 
 %% preamble
 % physical parameters
@@ -76,8 +76,32 @@ x0 = [S.w_init; 0e-8*ones(3,1)];
 
 mu = x(:,1:3)';
 sigma2_vect = x(:,4:6)';
+Sigma = zeros(3,3,size(mu, 2));
+for i = 1:size(Sigma, 3)
+   Sigma(:,:,i) = diag(sigma2_vect(:, i)); 
+end
 
 %% Generate the probabilistic needle shapes
+% mean shape
+w0 = mu;
+w0_prime = [diff(w0, 1, 2), zeros(3,1)];
+[~,mean_shape,~] = fn_intgEP_w0_Dimitri(w_init, w0, w0_prime, 0, 0, ds, size(mean_mat, 2), B, Binv);
+
+% shape bounds
+shape_mat = zeros(size(w_err_mat));
+for i = 1:size(w_err_mat, 1)
+    % grab w0 values
+    w0_i = squeeze(w_err_mat(i,:,:));
+    
+    % approximate w0_prime
+    w0_prime_i = [diff(w0_i, 1, 2), zeros(3,1)];
+    
+    
+    [~,pmat,~] = fn_intgEP_w0_Dimitri(w_init, w0_i, w0_prime_i, 0, 0, ds, size(shape_mat, 3), B, Binv);
+    
+    shape_mat(i,:,:) = pmat;
+    
+end
 
 %% save the current run
 if save_bool
@@ -86,7 +110,7 @@ if save_bool
     disp("Saved: " + file_base + ".mat")
 end
 
-%% plots
+%% Plots
 
 %% Functions
 % kappa_0 functions
