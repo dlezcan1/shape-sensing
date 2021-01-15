@@ -44,8 +44,6 @@ end
 
 % arclength coordinate
 ds = 1;
-s_l = 0:ds:L;
-N = length(s_l);
 
 % system parameters
 %- constants
@@ -72,7 +70,7 @@ S.ds = ds;
 %% Dynamical formulation
 needle_f = @(s, x) gaussian_dynamics(s, x, S);
 x0 = [S.w_init; 0e-8*ones(3,1)];
-[s, x] = ode45(@(s, x) needle_f(s, x), [0, S.L], x0);
+[s, x] = ode45(@(s, x) needle_f(s, x), [0:S.ds:S.L], x0);
 
 mu = x(:,1:3)';
 sigma2_vect = x(:,4:6)';
@@ -85,7 +83,24 @@ end
 % mean shape
 w0 = mu;
 w0_prime = [diff(w0, 1, 2), zeros(3,1)];
-[~,mean_shape,~] = fn_intgEP_w0_Dimitri(w_init, w0, w0_prime, 0, 0, ds, size(mean_mat, 2), B, Binv);
+[~,mean_shape,~] = fn_intgEP_w0_Dimitri(S.w_init, w0, w0_prime, 0, 0, ds, size(mu, 2), B, Binv);
+
+% sample Gaussian omega (w3 is assumed to be fixed)
+theta_vals = linspace(0, 2*pi-0.001, 50);
+u = [cos(theta_vals); sin(theta_vals)];
+w_err_mat = zeros(length(theta_vals), 3, size(Sigma, 3));
+
+for i = 1:length(theta_vals)
+    u_i = u(:,i);
+    for l = 1:size(Sigma, 3)
+        sig_i = 2*Sigma(1:2,1:2,l); % only grab first two
+        
+        w12_i = sig_i * u_i + mu(1:2,l);
+        
+        w_err_mat(i, 1:3, l) = [w12_i; mu(3,l)];
+        
+    end
+end 
 
 % shape bounds
 shape_mat = zeros(size(w_err_mat));
@@ -96,8 +111,8 @@ for i = 1:size(w_err_mat, 1)
     % approximate w0_prime
     w0_prime_i = [diff(w0_i, 1, 2), zeros(3,1)];
     
-    
-    [~,pmat,~] = fn_intgEP_w0_Dimitri(w_init, w0_i, w0_prime_i, 0, 0, ds, size(shape_mat, 3), B, Binv);
+    % generate sampled shape
+    [~,pmat,~] = fn_intgEP_w0_Dimitri(S.w_init, w0_i, w0_prime_i, 0, 0, ds, size(shape_mat, 3), B, Binv);
     
     shape_mat(i,:,:) = pmat;
     
@@ -110,7 +125,21 @@ if save_bool
     disp("Saved: " + file_base + ".mat")
 end
 
-%% Plots
+%% Plotting
+% uncertainty shapes
+for l = 1:size(shape_mat, 3)
+    pts_l = shape_mat(:,:,l); % grab all the points in an arclength
+    
+    % plot the coordinates
+    plot3(pts_l(:,3), pts_l(:,2), pts_l(:,1), 'k-', 'LineWidth', 2); hold on;
+    
+end
+plot3(mean_shape(3,:), mean_shape(2,:), mean_shape(1,:),'r-');
+
+hold off;
+axis equal; grid on;
+xlabel('z'); ylabel('y'); zlabel('x');
+view([60, 15])
 
 %% Functions
 % kappa_0 functions
