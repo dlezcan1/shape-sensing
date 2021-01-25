@@ -127,6 +127,7 @@ end
 
 %% Plotting
 % uncertainty shapes
+fig_ws = figure(1);
 for l = 1:size(shape_mat, 3)
     pts_l = shape_mat(:,:,l); % grab all the points in an arclength
     
@@ -140,6 +141,13 @@ hold off;
 axis equal; grid on;
 xlabel('z'); ylabel('y'); zlabel('x');
 view([60, 15])
+
+%% Saving
+mean_shape_gauss = mean_shape;
+sigma_mat_gauss = Sigma(1:2,1:2,:);
+save('../data/FP-Gauss-Shapes.mat', 'mean_shape_gauss', 'sigma_mat_gauss');
+
+saveas(fig_ws, '../data/DiffEq_Results_sigma_0.0025_gauss_ideal_ws-shape-3d.png');
 
 %% Functions
 % kappa_0 functions
