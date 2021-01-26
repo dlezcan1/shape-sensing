@@ -1,6 +1,6 @@
 %% main_Diffeq_FP_needle_data.m
 %
-% Solve the F-P equation for the prob. density of deformation
+% Solve the F-P equation for the prob. density of deformation w/ bayesian fusion
 %
 % - written by Dimitri Lezcano
 
@@ -9,7 +9,7 @@ global kc L w dw s_l w_i w_j w_k ds sigma A0 G0 deletion_indices
 save_bool = true;
 
 directory = "Data/";
-file_base = directory + "DiffEq_Results_sigma_%.4f_data";
+file_base = directory + "DiffEq_Results_sigma_%.4f_bayes_meas";
 
 %% preamble
 % physical parameters
@@ -28,7 +28,12 @@ G0 = Gmod*Jtor;
 L = 90;
 kc = 0.0025508; %0.003;
 sigma = 0.0005; % gaussian noise uncertainty
-w_init = [ 0.0035703; 0.00072161; -0.0086653 ];
+% w_init = [ 0.0035703; 0.00072161; -0.0086653 ];
+w_init = []
+
+% measurement parameters
+sigma_meas = 2*sigma;
+s_sensors = [10, 40, 75]; % arclengths of the measurements
 
 % arclength coordinate
 ds = 1;
@@ -89,7 +94,6 @@ deletion_indices = unique([idxs_i idxs_j idxs_k]);
 prob = init_probability(w_init); % w1, w2, w3, s | wx, wy, wz, s | i, j, k, l
 
 %% main loop
-
 h = waitbar(0, 'Please wait...', 'units', 'normalized', 'position', [.4 .455 .2 .09]);
 cum_time = 0; % cumulative time for averaging
 for l = 2:N               % arclength coordinate
@@ -108,6 +112,18 @@ for l = 2:N               % arclength coordinate
     % update the new array
     prob(2:M-1,2:M-1,2:M-1,l) = prob_tensorize(prob_l_vect, M-2, 1);
     
+    % check if this is a sensor location and if so, perform Bayesian fusion
+    if any(s_l(l) == s_sensors)
+        k0_s = kappa_0(s_l(l)); % assume ideal measurement
+        prob_meas = gauss_measurement(k0_s, 0, 0, sigma_meas, sigma_meas, -1); % no measurement from torsion
+        
+%         prob(:,:,:,l) = convn(prob(:,:,:,l), prob_meas, 'same'); % calculate the posterior measurement (not correct bc this is for addition of pdf)
+        prob(:,:,:,l) = prob(:,:,:,l) .* prob_meas; % calculate the posterior measurement (correct using Bayes' Rule)
+        
+    end
+    
+    prob(:,:,:,l) = prob(:,:,:,l) / sum(prob(:,:,:,l), 'all'); % normalize the pdf 
+    
     % time calculations
     cum_time = cum_time + toc;
     mean_time = cum_time/(l-1); % per run
@@ -119,7 +135,7 @@ for l = 2:N               % arclength coordinate
 end
 
 waitbar(l/N, h, 'Performing normalization.');
-prob = prob./sum(prob, [1,2,3]); % normalize the probability densities
+% prob = prob./sum(prob, [1,2,3]); % normalize the probability densities (just in case)
 close(h);
 
 %% save the current run
@@ -156,6 +172,7 @@ for l = 1:N
 
     ind = find(max(prob_l,[],'all') == prob_l);
     [idx_i, idx_j, idx_k] = ind2sub(size(prob_l), ind);
+    idx_i = idx_i(1); idx_j = idx_j(1); idx_k = idx_k(1);
     w1_max = w_i(idx_i); w2_max = w_j(idx_j); w3_max = w_k(idx_k);
         
     % x-y plots
@@ -216,8 +233,15 @@ for l = 1:N
     zlim([0 z_lim])
     view([ 0    90])    
     
-    sgtitle(sprintf("s = %.4f mm | %s_{max} = [%f, %f, %f]", ...
-        s_l(l), "\omega",w1_max, w2_max, w3_max));
+    if any(s_l(l) == s_sensors)
+        sgtitle(sprintf("Sensor Location! | s = %.4f mm | %s_{max} = [%f, %f, %f]", ...
+            s_l(l), "\omega", w1_max, w2_max, w3_max));
+    
+    else
+        sgtitle(sprintf("s = %.4f mm | %s_{max} = [%f, %f, %f]", ...
+            s_l(l), "\omega", w1_max, w2_max, w3_max));
+    end
+    
     if save_bool
         F(ind) = getframe(gcf); 
         writeVideo(vidfile,F(ind));
@@ -391,29 +415,59 @@ function [x_out, x1_new, x2_new, x3_new] = gaussian_smoothing(x, x1, x2, x3, sig
     end
     x_out = x_out/sum(x_out, 'all');
 end
-       
-
-function prob_density = prob_gauss_xy(w1m, w2m, sigma1, sigma2)
-% This function generates a gaussian probability density in the x-y
-% coordinate system (translating to i, j in index space)
+            
+            
+% Function to generate the Gaussian probability measurements
+function prob = gauss_measurement(w1, w2, w3, sigma1, sigma2, sigma3)
+% function to generate a 3-D gaussian pdf measurement
 %
-% Args:
-%   - w1m, w2m: the x and y omega mean deformation values, respectively.
-%   - sigma1, sigma2: the w1 and w2 standard deviation values, respectively
+% If you have no measurement in one of the axes, make sigmai <= 0
 
-global w_i w_j w_k
-
-    % create the individual 1-D Gaussians
-    gauss_x_1D = exp(-((w_i - w1m)/sigma1).^2/2); % x vector of gaussian
-    gauss_y_1D = exp(-((w_j - w2m)/sigma1).^2/2); % y vector of gaussian
+    global w_i w_j w_k
     
-    % create a 2-D gaussian through matrix repeating for both and then multiply
-    gauss_x_2D = repmat(gauss_x_1D, length(w_j), 1);
-    gauss_y_2D = repmat(gauss_y_1D', 1, length(w_i));
-    gauss_xy_2D = gauss_x_2D .* gauss_y_2D;
+    % Generate the 1-D probability functions
+    % w1 axis
+    if sigma1 > 0
+        gauss_x_vect = exp(-1/2 * ((w_i - w1) / sigma1).^2);
+        
+    else
+        gauss_x_vect = ones(1, length(w_i));
+        
+    end
     
-    % form the 3-D gaussian through matrix repeating in the w3 axis
-    prob_density = repmat(gauss_xy_2D, 1, 1, length(w_k));
-    prob_density = prob_density/sum(prob_density, 'all');
+    % w2 axis
+    if sigma2 > 0
+        gauss_y_vect = exp(-1/2 * ((w_j - w2) / sigma2).^2);
+        
+    else
+        gauss_y_vect = ones(1, length(w_j));
+        
+    end
+    
+    
+    % w3 axis
+    if sigma3 > 0
+        gauss_z_vect = exp(-1/2 * ((w_k - w3) / sigma3).^2);
+        
+    else
+        gauss_z_vect = ones(1, length(w_k));
+        
+    end
+    
+    % Generate the 3-D probability function
+    % reshape the arrays for repmat
+    gauss_x_vect = reshape(gauss_x_vect, [],1,1);
+    gauss_y_vect = reshape(gauss_y_vect, 1,[],1);
+    gauss_z_vect = reshape(gauss_z_vect, 1,1,[]);
+    
+    % reshape the arrays into 3-D voxel space
+    gauss_x_3D = repmat(gauss_x_vect, 1, length(w_j), length(w_k));
+    gauss_y_3D = repmat(gauss_y_vect, length(w_i), 1, length(w_k));
+    gauss_z_3D = repmat(gauss_z_vect, length(w_i), length(w_j), 1);
+    
+    % multiply the values
+    prob = gauss_x_3D .* gauss_y_3D .* gauss_z_3D;
+    
     
 end
+
