@@ -55,7 +55,47 @@ for i = 1:length(detratio_sigma)
     detratio_sigma(i) = det(gauss.sigma_mat_gauss(:,:,i))/det(fd.sigma_mat_FD(:,:,i));
     
 end
-detratio_sigma(isnan(detratio_sigma)) = 0;
+
+%% Generate probabilistic shapes
+% Gaussian 
+%% Generate the probabilistic needle shapes
+% mean shape
+w0 = gauss.mean_shape_gauss;
+w0_prime = [diff(w0, 1, 2), zeros(3,1)];
+[~,mean_shape,~] = fn_intgEP_w0_Dimitri(S.w_init, w0, w0_prime, 0, 0, ds, size(mu, 2), B, Binv);
+
+% sample Gaussian omega (w3 is assumed to be fixed)
+theta_vals = linspace(0, 2*pi-0.001, 50);
+u = [cos(theta_vals); sin(theta_vals)];
+w_err_mat = zeros(length(theta_vals), 3, size(Sigma, 3));
+
+for i = 1:length(theta_vals)
+    u_i = u(:,i);
+    for l = 1:size(Sigma, 3)
+        sig_i = 2*Sigma(1:2,1:2,l); % only grab first two
+        
+        w12_i = sig_i * u_i + mu(1:2,l);
+        
+        w_err_mat(i, 1:3, l) = [w12_i; mu(3,l)];
+        
+    end
+end 
+
+% shape bounds
+shape_mat = zeros(size(w_err_mat));
+for i = 1:size(w_err_mat, 1)
+    % grab w0 values
+    w0_i = squeeze(w_err_mat(i,:,:));
+    
+    % approximate w0_prime
+    w0_prime_i = [diff(w0_i, 1, 2), zeros(3,1)];
+    
+    % generate sampled shape
+    [~,pmat,~] = fn_intgEP_w0_Dimitri(S.w_init, w0_i, w0_prime_i, 0, 0, ds, size(shape_mat, 3), B, Binv);
+    
+    shape_mat(i,:,:) = pmat;
+    
+end
 
 %% Display statistics
 disp("Mean Shape Error Statistics");
@@ -69,7 +109,8 @@ disp(" L2 Eigenvalues Norm");
 fprintf("  Min: %f \n  Mean: %f \n  Max: %f \n\n", min(L2eigs_sigma), mean(L2eigs_sigma), max(L2eigs_sigma));
 
 disp(" |Cov_Gauss|/|Cov_FD|");
-fprintf("  Min: %f \n  Mean: %f \n  Max: %f \n\n", min(detratio_sigma), mean(detratio_sigma), max(detratio_sigma));
+fprintf("  Min: %f \n  Mean: %f \n  Max: %f \n\n", min(detratio_sigma), mean(detratio_sigma, 'double', 'omitnan'),...
+        max(detratio_sigma));
 
 %% Plotting
 fig_err = figure(1);
@@ -92,6 +133,12 @@ grid on;
 xlabel('arclength (mm)'); ylabel('Error');
 legend('Location', 'best'); title('Covariance Matrix Errors');
 
+% 3-D workspace Gauss
+fig_gauss = figure(2);
+
+% 3-D workspace FD
+fig_fd = figure(3);
+
  %% Saving
 % Statistics 
 fid = fopen(data_dir + fileout_base + "_stats.txt", 'w');
@@ -106,7 +153,8 @@ fprintf(fid, " L2 Eigenvalues Norm\n");
 fprintf(fid, "  Min: %f \n  Mean: %f \n  Max: %f \n\n", min(L2eigs_sigma), mean(L2eigs_sigma), max(L2eigs_sigma));
 
 fprintf(fid, " |Cov_Gauss|/|Cov_FD|\n");
-fprintf(fid, "  Min: %f \n  Mean: %f \n  Max: %f \n\n", min(detratio_sigma), mean(detratio_sigma), max(detratio_sigma));
+fprintf(fid, "  Min: %f \n  Mean: %f \n  Max: %f \n\n", min(detratio_sigma), mean(detratio_sigma, 'double', 'omitnan'),...
+        max(detratio_sigma));
 
 fclose(fid);
 fprintf("Saved statistics file: '%s'\n", data_dir + fileout_base + "_stats.txt");

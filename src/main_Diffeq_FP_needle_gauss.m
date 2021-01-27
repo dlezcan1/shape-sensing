@@ -6,7 +6,7 @@
 % - written by Dimitri Lezcano
 
 %% Variable set-up
-clear; clc;
+% clear; clc;
 
 %% saving options 
 save_bool = false;

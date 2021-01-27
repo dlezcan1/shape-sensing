@@ -104,6 +104,7 @@ plot3(mean_shape(3,:), mean_shape(2,:), mean_shape(1,:),'r-');
 hold off;
 axis equal; grid on;
 xlabel('z'); ylabel('y'); zlabel('x');
+view([60, 15])
 
 
 %% Saving
