@@ -26,7 +26,7 @@ gauss = load(gauss_file);
 
 %% Compute errors
 delta_shape = abs(fd.mean_shape_FD - gauss.mean_shape_gauss);
-delta_sigma = abs(fd.sigma_mat_FD - gauss.sigma_mat_gauss);
+delta_sigma = abs(fd.sigma_w_mat_FD - gauss.sigma_w_mat_gauss(1:2,1:2,:));
 
 % mean shape L2 norm
 L2_shape = vecnorm(delta_shape);
@@ -42,8 +42,8 @@ end
 L2eigs_sigma = zeros(1, length(delta_sigma));
 delta_eigs = zeros(2, length(delta_sigma));
 for i = 1:length(L2eigs_sigma)
-    eig_fd = eig(fd.sigma_mat_FD(:,:,i));
-    eig_gauss = eig(gauss.sigma_mat_gauss(:,:,i));
+    eig_fd = eig(fd.sigma_w_mat_FD(1:2,1:2,i));
+    eig_gauss = eig(gauss.sigma_w_mat_gauss(1:2,1:2,i));
     delta_eigs(:,i) = abs(eig_fd - eig_gauss);
     L2eigs_sigma(i) = norm(delta_eigs(:,i));
     
@@ -52,12 +52,10 @@ end
 % determinant ratio for sigma (|Gauss|/|FD|)
 detratio_sigma = zeros(1, length(delta_sigma));
 for i = 1:length(detratio_sigma)
-    detratio_sigma(i) = det(gauss.sigma_mat_gauss(:,:,i))/det(fd.sigma_mat_FD(:,:,i));
+    detratio_sigma(i) = det(gauss.sigma_w_mat_gauss(1:2,1:2,i))/det(fd.sigma_w_mat_FD(:,:,i));
     
 end
 
-%% Generate probabilistic shapes
-% Gaussian 
 %% Generate the probabilistic needle shapes
 % mean shape
 w0 = gauss.mean_shape_gauss;
@@ -133,11 +131,11 @@ grid on;
 xlabel('arclength (mm)'); ylabel('Error');
 legend('Location', 'best'); title('Covariance Matrix Errors');
 
-% 3-D workspace Gauss
-fig_gauss = figure(2);
-
-% 3-D workspace FD
-fig_fd = figure(3);
+% % 3-D workspace Gauss
+% fig_gauss = figure(2);
+% 
+% % 3-D workspace FD
+% fig_fd = figure(3);
 
  %% Saving
 % Statistics 

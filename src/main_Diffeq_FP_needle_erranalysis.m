@@ -22,7 +22,7 @@ load(file_base + ".mat");
 
 
 %% Get the mean omega
-mean_w = mean_prob_w(prob, w_i, w_j, w_k);
+mean_w_FD = mean_prob_w(prob, w_i, w_j, w_k);
 
 if isempty(w_init) % default w_init
     w_init = [kc; 0; 0];
@@ -51,15 +51,15 @@ theta_vals = linspace(0, 2*pi, 20); % the theta values we will use to parametriz
 u = [cos(theta_vals); sin(theta_vals)]; % unit vectors
 
 w_err_mat = zeros(length(theta_vals), 3, length(ellipse_mat)); % #u x dim(w) x #arclength
-w_err_mat(:,3,:) = repmat(reshape(mean_w(3,:), 1, 1, []), length(theta_vals), 1); % assign torsion as mean
+w_err_mat(:,3,:) = repmat(reshape(mean_w_FD(3,:), 1, 1, []), length(theta_vals), 1); % assign torsion as mean
 for i = 1:length(u) % iterate over unit vectors
     for l = 1:length(ellipse_mat) % iterate over all of the ellipses
         u_i = u(:,i); % the unit vector to work with
-        sigma_mat = 2*ellipse_mat(:,:,l); % the ellipse matrix
+        sigma_mat = ellipse_mat(:,:,l); % the ellipse matrix
         
         % calculate the w value for w1 & w2
 %         w12_i = sigma_mat * u_i + mean_mat(:,l);
-        w12_i = sigma_mat * u_i + mean_w(1:2,l);
+        w12_i = sigma_mat * u_i + mean_w_FD(1:2,l);
     
         % append the result
         w_err_mat(i, 1:2, l) = w12_i;
@@ -69,7 +69,7 @@ end
 
 %% Start determining the shape integrations
 % mean shape
-w0 = mean_w;
+w0 = mean_w_FD;
 w0_prime = [diff(w0, 1, 2), zeros(3,1)];
 [~,mean_shape,~] = fn_intgEP_w0_Dimitri(w_init, w0, w0_prime, 0, 0, ds, size(mean_mat, 2), B, Binv);
 
@@ -108,3 +108,7 @@ view([60, 15])
 
 
 %% Saving
+mean_w_FD = mean_mat;
+mean_shape_FD = mean_shape;
+sigma_w_mat_FD = ellipse_mat;
+save('../data/FP-FD-Shapes.mat', 'mean_shape_FD', 'sigma_w_mat_FD', 'mean_w_FD');

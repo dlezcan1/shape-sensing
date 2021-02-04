@@ -93,7 +93,7 @@ w_err_mat = zeros(length(theta_vals), 3, size(Sigma, 3));
 for i = 1:length(theta_vals)
     u_i = u(:,i);
     for l = 1:size(Sigma, 3)
-        sig_i = 2*Sigma(1:2,1:2,l); % only grab first two
+        sig_i = Sigma(1:2,1:2,l); % only grab first two
         
         w12_i = sig_i * u_i + mu(1:2,l);
         
@@ -143,9 +143,10 @@ xlabel('z'); ylabel('y'); zlabel('x');
 view([60, 15])
 
 %% Saving
+mean_w_gauss = mu;
 mean_shape_gauss = mean_shape;
-sigma_mat_gauss = Sigma(1:2,1:2,:);
-save('../data/FP-Gauss-Shapes.mat', 'mean_shape_gauss', 'sigma_mat_gauss');
+sigma_w_mat_gauss = Sigma;
+save('../data/FP-Gauss-Shapes.mat', 'mean_shape_gauss', 'sigma_w_mat_gauss', 'mean_w_gauss');
 
 saveas(fig_ws, '../data/DiffEq_Results_sigma_0.0025_gauss_ideal_ws-shape-3d.png');
 
