@@ -9,9 +9,9 @@
 % clear; clc;
 
 %% saving options 
-save_bool = false;
+save_bool = true;
 
-directory = "Data/";
+directory = "../data/";
 file_base = directory + "DiffEq_Results_sigma_%.4f_gauss-approx";
 
 %% preamble
@@ -34,7 +34,8 @@ Binv = inv(B);
 L = 90;
 kc = 0.0025508; %0.003;
 sigma = 2.5*0.001; % gaussian noise uncertainty
-w_init = []; % ideal case
+% w_init = []; % ideal case
+w_init = [ 0.0035703; 0.00072161; -0.0086653 ]; % data insertion
 
 if isempty(w_init)
     file_base = file_base + "_ideal";
@@ -149,6 +150,7 @@ sigma_w_mat_gauss = Sigma;
 save('../data/FP-Gauss-Shapes.mat', 'mean_shape_gauss', 'sigma_w_mat_gauss', 'mean_w_gauss');
 
 saveas(fig_ws, '../data/DiffEq_Results_sigma_0.0025_gauss_ideal_ws-shape-3d.png');
+disp("Saved figure: " + "../data/DiffEq_Results_sigma_0.0025_gauss_ideal_ws-shape-3d.png");
 
 %% Functions
 % kappa_0 functions
