@@ -13,7 +13,7 @@ global kc L w dw s_l w_i w_j w_k ds sigma A0 G0 deletion_indices
 save_bool = true;
 
 directory = "Data/";
-file_base = directory + "DiffEq_Results_sigma_%.4f";
+file_base = directory + "DiffEq_Results_sigma-%.4f";
 
 %% preamble
 % physical parameters
@@ -21,6 +21,7 @@ Emod = 200e9*1e-6; % 200 GPa, conversion from N/m^2 to N/mm^2
 Pratio = 0.29; % Poisson's ratio
 diam = 0.9; % in mm
 Ibend = pi*diam^4/64;
+
 
 Gmod = Emod/2/(1+Pratio);
 Jtor = pi*diam^4/32;
@@ -38,14 +39,8 @@ sigma = 2.5*0.001; % gaussian noise uncertainty
 w_init = []; % ideal case
 % w_init = [ 0.0035703; 0.00072161; -0.0086653 ]; % data
 
-if isempty(w_init)
-    file_base = file_base + "_ideal";
-else
-    file_base = file_base + "_data";
-end
-
 % arclength coordinate
-ds = 1;
+ds = 0.5;
 s_l = 0:ds:L;
 N = length(s_l)
 
@@ -59,6 +54,14 @@ w_j = w; % omega_y vector
 w_k = w; % omega_z vector
 
 M_i = length(w_i); M_j = length(w_j); M_k = length(w_k); % length of each of these vectors
+
+% update file base
+file_base = file_base + sprintf("_ds-%.2f", ds);
+if isempty(w_init)
+    file_base = file_base + "_ideal";
+else
+    file_base = file_base + "_data";
+end
 
 %% Indices for subset (removing boundary)
 % find columns and rows to delete (indices)
