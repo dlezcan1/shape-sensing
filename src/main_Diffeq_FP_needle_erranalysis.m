@@ -14,7 +14,7 @@ save_bool = true;
 sigma = 0.001; % gaussian noise uncertainty
 
 directory = "../data/";
-file_base = directory + "DiffEq_Results_sigma_0.0025_ideal";
+file_base = directory + "DiffEq_Results_sigma-0.0025_ds-1.0_ideal";
 
 
 %% Load the data
@@ -111,4 +111,4 @@ view([60, 15])
 mean_w_FD = mean_mat;
 mean_shape_FD = mean_shape;
 sigma_w_mat_FD = ellipse_mat;
-save('../data/FP-FD-Shapes.mat', 'mean_shape_FD', 'sigma_w_mat_FD', 'mean_w_FD');
+save('../data/FP-FD_ds-1.0-Shapes.mat', 'mean_shape_FD', 'sigma_w_mat_FD', 'mean_w_FD');

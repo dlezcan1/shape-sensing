@@ -12,7 +12,7 @@ global kc L w dw s_l w_i w_j w_k ds sigma A0 G0 deletion_indices
 %% saving options 
 save_bool = true;
 
-directory = "Data/";
+directory = "../data/";
 file_base = directory + "DiffEq_Results_sigma-%.4f";
 
 %% preamble
