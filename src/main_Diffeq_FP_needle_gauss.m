@@ -12,7 +12,7 @@
 save_bool = true;
 
 directory = "../data/";
-file_base = directory + "DiffEq_Results_sigma_%.4f_gauss-approx";
+file_base = directory + "DiffEq_Results_sigma-%.4f_gauss-approx_ds-%.1f";
 
 %% preamble
 % physical parameters
@@ -34,8 +34,8 @@ Binv = inv(B);
 L = 90;
 kc = 0.0025508; %0.003;
 sigma = 2.5*0.001; % gaussian noise uncertainty
-% w_init = []; % ideal case
-w_init = [ 0.0035703; 0.00072161; -0.0086653 ]; % data insertion
+w_init = []; % ideal case
+% w_init = [ 0.0035703; 0.00072161; -0.0086653 ]; % data insertion
 
 if isempty(w_init)
     file_base = file_base + "_ideal";
@@ -44,7 +44,7 @@ else
 end
 
 % arclength coordinate
-ds = 1;
+ds = 0.5;
 
 % system parameters
 %- constants
@@ -121,7 +121,7 @@ end
 
 %% save the current run
 if save_bool
-    file_base = sprintf(file_base, sigma);
+    file_base = sprintf(file_base, sigma, S.ds);
     save(file_base + ".mat");
     disp("Saved: " + file_base + ".mat")
 end
@@ -147,10 +147,10 @@ view([60, 15])
 mean_w_gauss = mu;
 mean_shape_gauss = mean_shape;
 sigma_w_mat_gauss = Sigma;
-save('../data/FP-Gauss-Shapes.mat', 'mean_shape_gauss', 'sigma_w_mat_gauss', 'mean_w_gauss');
+save(sprintf('../data/FP-Gauss_ds-%.2f-Shapes.mat', S.ds), 'mean_shape_gauss', 'sigma_w_mat_gauss', 'mean_w_gauss');
 
-saveas(fig_ws, '../data/DiffEq_Results_sigma_0.0025_gauss_ideal_ws-shape-3d.png');
-disp("Saved figure: " + "../data/DiffEq_Results_sigma_0.0025_gauss_ideal_ws-shape-3d.png");
+saveas(fig_ws, file_base + '_ws-shape-3d.png');
+disp("Saved figure: " +  file_base + '_ws-shape-3d.png');
 
 %% Functions
 % kappa_0 functions

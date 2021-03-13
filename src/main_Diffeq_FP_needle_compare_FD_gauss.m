@@ -10,12 +10,12 @@ set(0,'DefaultAxesFontSize',24);
 %% Set-Up
 % file set-up
 data_dir = "../data/";
-fd_file = data_dir + "FP-FD-Shapes.mat";
-gauss_file = data_dir + "FP-Gauss-Shapes.mat";
-fileout_base = "compare_FD-Gauss";
+fd_file = data_dir + "FP-FD_ds-0.5-Shapes.mat";
+gauss_file = data_dir + "FP-Gauss_ds-0.50-Shapes.mat";
+fileout_base = "compare_FD-Gauss_ds-0.50";
 
 % arclength parameters
-ds = 1;
+ds = 0.5;
 L = 90;
 s = 0:ds:L;
 
@@ -131,11 +131,21 @@ grid on;
 xlabel('arclength (mm)'); ylabel('Error');
 legend('Location', 'best'); title('Covariance Matrix Errors');
 
-% % 3-D workspace Gauss
-% fig_gauss = figure(2);
-% 
-% % 3-D workspace FD
-% fig_fd = figure(3);
+% - 2D mean shapes
+f2d = figure(2);
+subplot(2,1,1);
+plot(fd.mean_shape_FD(3,:), fd.mean_shape_FD(1,:), '-', 'LineWidth', 2, 'DisplayName', 'ds = 1.0 mm'); hold on;
+plot(gauss.mean_shape_gauss(3,:), gauss.mean_shape_gauss(1,:), '--','LineWidth', 2, 'DisplayName', 'ds = 0.5 mm'); hold off;
+legend('Location', 'best');
+ylabel('x [mm]');
+axis equal; grid on;
+
+subplot(2,1,2);
+plot(fd.mean_shape_FD(3,:), fd.mean_shape_FD(2,:), '-', 'LineWidth', 2, 'DisplayName', 'FD'); hold on;
+plot(gauss.mean_shape_gauss(3,:), gauss.mean_shape_gauss(2,:), '--','LineWidth', 2, 'DisplayName', 'Gauss'); hold off;
+xlabel('z [mm]'); ylabel('y [mm]');
+axis equal; grid on;
+sgtitle('Mean Shapes for needle deformation: FD vs. Gaussian | ds = 0.5');
 
  %% Saving
 % Statistics 
@@ -163,4 +173,10 @@ fprintf("Saved Error figure: %s\n", data_dir + fileout_base + "_error.png");
 
 savefig(fig_err, data_dir + fileout_base + "_error.fig");
 fprintf("Saved Error figure: %s\n", data_dir + fileout_base + "_error.fig");
+
+saveas(f2d, data_dir + fileout_base + "_2d-mean.png");
+fprintf("Saved Error figure: %s\n", data_dir + fileout_base + "_2d-mean.png");
+
+savefig(f2d, data_dir + fileout_base + "_2d-mean.fig");
+fprintf("Saved Error figure: %s\n", data_dir + fileout_base + "_2d-mean.fig");
 
