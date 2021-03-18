@@ -9,7 +9,7 @@
 % clear; clc;
 
 %% saving options 
-save_bool = true;
+save_bool = false;
 
 directory = "../data/";
 file_base = directory + "DiffEq_Results_sigma-%.4f_gauss-approx_ds-%.1f";
