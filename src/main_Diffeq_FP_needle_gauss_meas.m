@@ -33,7 +33,7 @@ Binv = inv(B);
 % insertion parameters
 L = 90;
 kc = 0.0025508; %0.003;
-sigma = 2.5*0.001; % gaussian noise uncertainty
+sigma = 10*0.001; % gaussian noise uncertainty
 w_init = []; % ideal case
 % w_init = [ 0.0035703; 0.00072161; -0.0086653 ]; % data insertion
 
@@ -70,7 +70,7 @@ S.ds = ds;
 S.arclengths = 0:S.ds:S.L;
 
 %- measurement parameters
-S.cov_m = [S.sigma2/4, S.sigma2/4, inf]; % diagonal covariance of measurement probability
+S.cov_m = [0.0520, 0.0532, inf]; % diagonal covariance of measurement probability
 S.meas_locations = [10, 40, 75];
 [~, S.meas_idxs] = min(abs(S.arclengths' - S.meas_locations), [], 1); % indexes just in case
 S.appx_meas_locations = S.arclengths(S.meas_idxs); % approximate locations (if not already there)

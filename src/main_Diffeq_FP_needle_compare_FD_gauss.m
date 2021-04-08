@@ -134,8 +134,8 @@ legend('Location', 'best'); title('Covariance Matrix Errors');
 % - 2D mean shapes
 f2d = figure(2);
 subplot(2,1,1);
-plot(fd.mean_shape_FD(3,:), fd.mean_shape_FD(1,:), '-', 'LineWidth', 2, 'DisplayName', 'ds = 1.0 mm'); hold on;
-plot(gauss.mean_shape_gauss(3,:), gauss.mean_shape_gauss(1,:), '--','LineWidth', 2, 'DisplayName', 'ds = 0.5 mm'); hold off;
+plot(fd.mean_shape_FD(3,:), fd.mean_shape_FD(1,:), '-', 'LineWidth', 2, 'DisplayName', 'FD'); hold on;
+plot(gauss.mean_shape_gauss(3,:), gauss.mean_shape_gauss(1,:), '--','LineWidth', 2, 'DisplayName', 'Gauss'); hold off;
 legend('Location', 'best');
 ylabel('x [mm]');
 axis equal; grid on;
