@@ -33,7 +33,7 @@ Binv = inv(B);
 % insertion parameters
 L = 90;
 kc = 0.0025508; %0.003;
-sigma = 10*0.001; % gaussian noise uncertainty
+sigma = 2.5*0.001; % gaussian noise uncertainty
 w_init = []; % ideal case
 % w_init = [ 0.0035703; 0.00072161; -0.0086653 ]; % data insertion
 
@@ -83,7 +83,7 @@ for i = 1:length(S.meas_locations)
    S.arclengths_per_measurement{i} = S.arclengths(idxs);
    fprintf("AA: %d->%d | Min: %.2f | Max %.2f\n", i-1,i, min(S.arclengths_per_measurement{i}), ...
             max(S.arclengths_per_measurement{i}));
-   idx_0 = S.meas_idxs(i) + 1;
+   idx_0 = S.meas_idxs(i);
 end
 S.arclengths_per_measurement{i+1} = S.arclengths(idx_0:end);
 fprintf("AA: %d->tip | Min: %.2f | Max %.2f\n\n", i, min(S.arclengths_per_measurement{i}), ...
@@ -107,9 +107,13 @@ for i = 1:length(S.arclengths_per_measurement)
    end
    
    % append new data
-   s = [s; s_i];
-   x = [x; x_i];
-   
+   if i < length(S.arclengths_per_measurement)
+       s = [s; s_i(1:end-1)];
+       x = [x; x_i(1:end-1,:)];
+   else
+       s = [s; s_i];
+       x = [x; x_i];
+   end
    % update x_init
    x_init = reshape(x_i(end,:), [], 1);
 end
