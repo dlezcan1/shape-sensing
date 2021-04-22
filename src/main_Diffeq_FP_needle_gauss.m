@@ -87,7 +87,7 @@ w0_prime = [diff(w0, 1, 2), zeros(3,1)];
 [~,mean_shape,~] = fn_intgEP_w0_Dimitri(S.w_init, w0, w0_prime, 0, 0, ds, size(mu, 2), B, Binv);
 
 % sample Gaussian omega (w3 is assumed to be fixed)
-theta_vals = linspace(0, 2*pi-0.001, 50);
+theta_vals = linspace(0, 2*pi, 51); theta_vals = theta_vals(1:end-1);
 u = [cos(theta_vals); sin(theta_vals)];
 w_err_mat = zeros(length(theta_vals), 3, size(Sigma, 3));
 
