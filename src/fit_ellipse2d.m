@@ -31,7 +31,7 @@ function [center, Sigma, R, Sig_2d] = fit_ellipse2d(pts)
     dpts_R = R' * dpts;
     
     % perform 2D ellipse fitting
-    A = [dpts_R(1,:).^2; dpts_R(1,:).*dpts_R(2,:); dpts_R(2,:).^2]';
+    A = [dpts_R(1,:).^2; 2*dpts_R(1,:).*dpts_R(2,:); dpts_R(2,:).^2]';
     b = ones(size(A,1), 1);
     sig_2d_v = A\b;
     Sig_2d = inv([sig_2d_v(1), sig_2d_v(2);
