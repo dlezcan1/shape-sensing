@@ -263,7 +263,7 @@ disp("Saved figure: " +  file_base + '_ws-shape-2d.png');
 saveas(fig_cov, file_base + '_cov.png');
 disp("Saved figure: " +  file_base + '_cov.png');
 
-%% Functions
+%% Helper Functions
 % kappa_0 functions
 function k0 = kappa_0(s, S)
     k0 = S.kc * (1 - s/S.L).^2;

@@ -4,14 +4,35 @@
 %
 % - written by: Dimitri Lezcano
 
-function cost = cost_sensor_optimization(mean_shape, bound_shapes, kwargs)
+function cost = cost_sensor_optimization(slocs, params)
+    %% Arguments block
+    arguments
+        slocs (1,:);
+        params.kc double = 0.0025508;
+        params.w_init = [];
+        params.sigma double = 0.0025;
+        params.L double = 90;
+        params.type string = "tip-mean";
+    end
+    
+    %% Generate the needle shape
+    [mean_shape, bound_shapes] = needle_gauss_meas(slocs, 'kc', params.kc, ...
+        'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L);
+    
+    cost = cost_shape_error(mean_shape, bound_shapes, 'type', params.type);
+
+end
+
+%% Helper functions
+% shape error measurment
+function cost = cost_shape_error(mean_shape, bound_shapes, kwargs)
     arguments
         mean_shape (3,:);
         bound_shapes (:,3,:) {mustBeEqualSize(mean_shape, bound_shapes, [2,3])};
         kwargs.type string = "tip-mean";
     end
     
-    %% Tip error 
+    % Tip error 
     if strcmp(kwargs.type, "tip-mean")
         cost = tip_error_mean(mean_shape, bound_shapes);
     
@@ -24,7 +45,6 @@ function cost = cost_sensor_optimization(mean_shape, bound_shapes, kwargs)
     end
 end
 
-%% Helper functions
 % center offset error
 function err = tip_error_mean(mean_shape, bound_shapes)
     tip_bounds = bound_shapes(:,:,end)'; % N x 3 -> 3 x N
