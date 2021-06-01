@@ -14,13 +14,13 @@ function mustBeEqualSize(a, b, axes)
     elseif length(axes) == 1
         if ~isequal(size(a, axes),size(b, axes))
             eid = 'Size:notEqual';
-            msg = 'Input axes must have equal size.';
+            msg = "Input axes must have equal size along axis: " + axes(1);
             throwAsCaller(MException(eid,msg))
         end
     else
         if ~isequal(size(a, axes(1)),size(b, axes(2)))
             eid = 'Size:notEqual';
-            msg = 'Input axes must have equal size.';
+            msg = sprintf("Input axes a[%d] and b[%d] must have equal size.", axes(1:2));
             throwAsCaller(MException(eid,msg))
         end
     end
