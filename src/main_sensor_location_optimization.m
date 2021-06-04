@@ -1,5 +1,5 @@
 %% main_sensor_location_optimization
-clear; 
+clear; close all;
 %% Setup
 % Needle shape generation params
 params.kc = 0.0025508;
@@ -7,8 +7,10 @@ params.w_init = [];
 params.sigma = 0.005;
 params.L = 90;
 params.ds = 0.5;
+params.sloc_ds = params.ds*floor(2.5 / params.ds); % change only the numerator 
 params.num_AA = 3;
 params.divide_needle = false; % divide the needle equally in AAs?
+params.fmincon = false; % whether to use fmincon or not
 
 % cost function for SLO
 weight_bounds = 1.0; % where to change
@@ -19,71 +21,111 @@ cost_fn = @(slocs) weight_bounds * cost_sensor_optimization(slocs, 'kc', params.
                    weight_mean   * cost_sensor_optimization(slocs, 'kc', params.kc, ...
                             'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L, ...
                             'type', "tip-mean", 'ds', params.ds);
-cost_fn2 = @(x) cost_fn(params.L*x);
 
 % Saving name
-save_bool = false;  % change if you'd like to save
+save_bool = true;  % change if you'd like to save
 data_dir = fullfile("../data/");
-filesave_base = fullfile(data_dir, "SLO_numAA-%d");                        
+filesave_base = "SLO_numAA-%d";                        
                
 
 %% Optimization
 % initialiation
-bnds = linspace(0, 1, params.num_AA + 1)';
+bnds = linspace(0, params.L, params.num_AA + 1)';
 slocs_0 = mean([bnds(1:end-1), bnds(2:end)],2); % halfway points between sections
-slocs_0 = sort(rand(params.num_AA,1));
-disp("Initial sensor locations:")
-disp(params.L * slocs_0')
+% slocs_0 = sort(randperm(params.L, params.num_AA))'; % random points along the needle
 
+disp("Initial sensor locations:");
+disp(slocs_0');
 
 % bounds
 if params.divide_needle
-    
     lb = bnds(1:end-1);
     ub = bnds(2:end);
 else
     lb = zeros(params.num_AA, 1);
-    ub = 1 * ones(params.num_AA, 1);
+    ub = params.L * ones(params.num_AA, 1);
 end
+lb(lb <= 0)        = lb(lb<= 0) + params.sloc_ds;
+ub(ub >= params.L) = ub(ub >= params.L) - params.sloc_ds;
+assert(all(lb < ub))
 
 disp("bounds:");
 disp([lb, ub]);
 
-% options
-warning('off');
-disp("Beginning optimization...");
-tic; 
-maxiter = 1000;
-timelimit = 100;
-tolfun = 1e-6;%1e-4;
+% fmincon optimization
+if params.fmincon
+    % options
+    warning('off');
+    disp("Beginning optimization...");
+    tic; 
+    maxiter = 1000;
+    timelimit = 100;
+    tolfun = 1e-6;%1e-4;
 
-oldopts = optimset('fmincon');
-%psoldopts = psoptimset;
-scalef = 1/cost_fn2(slocs_0);
-Tol = 1e-14*10^(ceil(log10(scalef)));
+    oldopts = optimset('fmincon');
+    %psoldopts = psoptimset;
+    scalef = 1/cost_fn(slocs_0);
+    Tol = 1e-14*10^(ceil(log10(scalef)));
 
-% options = optimset(oldopts,'Algorithm','interior-point','TolFun',Tol,'TolX',1e-8,...
-%     'MaxFunEvals',10000,'Display','notify','MaxIter',maxiter,'MaxFunEvals',100000);
-options = optimset(oldopts,'Algorithm','sqp','TolFun',Tol,'TolX',1e-2,...
-    'Display','iter-detailed','MaxIter',maxiter,'MaxFunEvals',100000);
+    % options = optimset(oldopts,'Algorithm','interior-point','TolFun',Tol,'TolX',1e-8,...
+    %     'MaxFunEvals',10000,'Display','notify','MaxIter',maxiter,'MaxFunEvals',100000);
+    options = optimset(oldopts,'Algorithm','sqp','TolFun',Tol,'TolX',1e-2,...
+        'Display','iter-detailed','MaxIter',maxiter,'MaxFunEvals',100000);
 
-% optimization
-[slocs_optim, fval, exitflag] = fmincon(@(sloc) cost_fn2(sloc), ...
-                                 slocs_0, [], [], [], [], lb, ub, [], options);
+    % optimization
+    [slocs_optim, fval, exitflag] = fmincon(@(sloc) cost_fn(sloc), ...
+                                     slocs_0, [], [], [], [], lb, ub, [], options);
 
-toc
-warning('on');
-disp(" ");
+    toc
+    warning('on');
+    disp(" ");
+
+% brute force optimization
+else
+    % gather all of the tests
+    slocs_test = (lb(1):params.sloc_ds:ub(1))';
+    for i = 2:params.num_AA
+        slocs_test = cart_product(slocs_test, (lb(i):params.sloc_ds:ub(i))');
+    end
+    
+    % remove unordered values
+    mask_include = all(diff(slocs_test, 1, 2) > 0, 2);
+    slocs_test = slocs_test(mask_include,:);
+    
+    % create data table
+    data_tbl = array2table(slocs_test, 'VariableNames', "SensorLocation_" + (1:params.num_AA));
+    
+    % iterate through all of the costs
+    warning('off');
+    progressbar('Brute Force Optimization')
+    for i = 1:size(data_tbl,1)
+       data_tbl.cost(i) = cost_fn(data_tbl{i,1:params.num_AA}'); 
+       progressbar(i/size(data_tbl,1));
+    end
+    warning('on');
+    
+    % determine optimal slocs
+    [min_cost,min_cost_idx] = min(data_tbl.cost);
+    slocs_optim = data_tbl{i,1:params.num_AA};
+end
+
 
 % Display results
-disp("Optimal sensor lcoations:")
-disp(reshape(params.L*slocs_optim, 1, []));
+disp("Optimal sensor locations:")
+disp(reshape(slocs_optim, 1, []));
 
 %% Save results
 if save_bool
-    outfile = sprintf(filesave_base, params.num_AA) + ".mat";
+    outfile = fullfile(data_dir, sprintf(filesave_base, params.num_AA) + ".mat");
     outfile = filename_no_overwrite(outfile);
 
-    save(outfile, 'params', 'lb', 'ub', 'weight_bounds', 'weight_mean'); 
+    if params.fmincon
+        save(outfile, 'params', 'lb', 'ub', 'weight_bounds', 'weight_mean',...
+            'slocs_optim', 'fval', 'exitflag', 'options');
+    else
+        save(outfile, 'params', 'lb', 'ub', 'weight_bounds', 'weight_mean',...
+            'data_tbl', 'slocs_optim');
+    end
+        
     fprintf("Saved data file: %s\n\n", outfile);
 end
