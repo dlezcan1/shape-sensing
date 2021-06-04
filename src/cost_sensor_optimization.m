@@ -16,12 +16,14 @@ function cost = cost_sensor_optimization(slocs, params)
         params.w_init = [];
         params.sigma double = 0.0025;
         params.L double = 90;
+        params.ds double = 0.5;
         params.type string = "tip-mean";
     end
     
     %% Generate the needle shape
     [mean_shape, bound_shapes] = needle_gauss_meas(slocs, 'kc', params.kc, ...
-        'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L);
+        'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L, ...
+        'ds', params.ds);
     
     cost = cost_shape_error(mean_shape, bound_shapes, 'type', params.type);
 

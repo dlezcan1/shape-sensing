@@ -5,6 +5,7 @@ function [pos, pos_bounds, wv, Sigma_wv] = needle_gauss_meas(slocs, parameters)
         parameters.w_init = [];
         parameters.sigma double = 0.0025;
         parameters.L double = 90;
+        parameters.ds double = 0.5;
     end
     %% preamble
     % physical parameters
@@ -29,7 +30,7 @@ function [pos, pos_bounds, wv, Sigma_wv] = needle_gauss_meas(slocs, parameters)
     w_init = parameters.w_init;
 
     % arclength coordinate
-    ds = 0.5;
+    ds = parameters.ds;
 
     % system parameters
     %- constants
