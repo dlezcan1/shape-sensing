@@ -2,6 +2,10 @@
 %
 % this is a function to provide a cost for the sensor optimization
 %
+% types available:
+%   "tip-mean" - compares mean of tip and mean of gaussian
+%   "tip-bounds" - compares error bounds from shape sensing
+%
 % - written by: Dimitri Lezcano
 
 function cost = cost_sensor_optimization(slocs, params)
