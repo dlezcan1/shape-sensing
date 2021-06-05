@@ -1,9 +1,8 @@
-function wv = fn_intgEP_1layer_Dimitri(kc,w_init, theta0, L,s0,ds,B,Binv)
+function [wv, pmat, Rmat] = fn_intgEP_1layer_Dimitri(kc,w_init, theta0, L,s0,ds,B,Binv)
 %
 % integration of Euler-Poincare equation for a homogeneous layer
 % kc: kappa_c value for the layer
 % theta0: initial rotation angle
-
 % s0: initial arclength
 % L: the length for insertion
 % ds: delta s
@@ -39,23 +38,23 @@ for i = 1:N-1
     end
 end
 
-% % orientation and position
-% Rmat = zeros(3,3,N);
-% Rmat(:,:,1) = Rot_x(theta0);
-% 
-% pmat = zeros(3,N);
-% for i = 2:N
-%     % orientation
-%     W = matr(1/2*(wv(:,i-1) + wv(:,i)));
-%     Rmat(:,:,i) = Rmat(:,:,i-1)*expm(ds*W);
-% 
-%     % position
-%     e3vec = squeeze(Rmat(:,3,1:i));
-%     if i == 2
-%         pmat(:,i) = pmat(:,i-1) + squeeze(Rmat(:,3,i))*ds;
-%     else
-%         pmat(:,i) = Simpson_vec_int(e3vec,ds);
-%     end        
-% end
+% orientation and position
+Rmat = zeros(3,3,N);
+Rmat(:,:,1) = Rot_x(theta0);
+
+pmat = zeros(3,N);
+for i = 2:N
+    % orientation
+    W = matr(1/2*(wv(:,i-1) + wv(:,i)));
+    Rmat(:,:,i) = Rmat(:,:,i-1)*expm(ds*W);
+
+    % position
+    e3vec = squeeze(Rmat(:,3,1:i));
+    if i == 2
+        pmat(:,i) = pmat(:,i-1) + squeeze(Rmat(:,3,i))*ds;
+    else
+        pmat(:,i) = Simpson_vec_int(e3vec,ds);
+    end        
+end
 
 end
