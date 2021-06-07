@@ -20,6 +20,7 @@ function [p_pred, R_pred, wv_pred, q_best] = predict_insertion_singlelayer(L_pre
         params.optim_lb double = 0.0;
         params.optim_ub double = 1.0;
         params.optim_Tol double = 1e-14;
+        params.optim_display string = 'notify';
     end
     
     %% Set-up
@@ -41,7 +42,7 @@ function [p_pred, R_pred, wv_pred, q_best] = predict_insertion_singlelayer(L_pre
     % optimization options (fmincon)
     opts = optimset('fmincon');
     options = optimset(opts,'Algorithm','interior-point','TolFun',params.optim_Tol,...
-            'TolX',1e-8,'MaxFunEvals',10000,'Display','notify');
+            'TolX',1e-8,'MaxFunEvals',10000,'Display',params.optim_display);
         
     [q_best, fval, exitflag, output] = fmincon(cost_fn, params.q0, [], [], [], [], ...
             params.optim_lb, params.optim_ub, [], options);
