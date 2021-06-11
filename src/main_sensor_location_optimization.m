@@ -106,7 +106,7 @@ else
     
     % determine optimal slocs
     [min_cost,min_cost_idx] = min(data_tbl.cost);
-    slocs_optim = data_tbl{i,1:params.num_AA};
+    slocs_optim = data_tbl{min_cost_idx,1:params.num_AA};
 end
 
 
