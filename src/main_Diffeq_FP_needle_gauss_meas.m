@@ -71,7 +71,9 @@ S.arclengths = 0:S.ds:S.L;
 
 %- measurement parameters
 S.cov_m = [0.0520, 0.0532, inf]; % diagonal covariance of measurement probability
-S.meas_locations = [10, 40, 75];
+% S.meas_locations = [10, 40, 75];
+% S.meas_locations = [42.5, 45, 47.5];
+S.meas_locations = [82.5, 85, 87.5];
 [~, S.meas_idxs] = min(abs(S.arclengths' - S.meas_locations), [], 1); % indexes just in case
 S.appx_meas_locations = S.arclengths(S.meas_idxs); % approximate locations (if not already there)
 
@@ -173,7 +175,7 @@ end
 
 %% Plotting
 % uncertainty shapes
-fig_ws = figure(1);
+fig_ws = figure;
 for l = 1:size(shape_mat, 3)
     pts_l = shape_mat(:,:,l); % grab all the points in an arclength
     
@@ -187,7 +189,7 @@ xlabel('z'); ylabel('y'); zlabel('x');
 view([60, 15])
 
 % 2-D overlay
-fig_2d = figure(2);
+fig_2d = figure;
 for l = 1:size(shape_mat,3)
     pts_l = shape_mat(:,:,l);
     
@@ -217,7 +219,7 @@ dshape_mat_norm(:,2,:) = vecnorm(dshape_mat(:,[2;3],:), 2, 2).*sign(dshape_mat(:
 max_dshape_mat_norm = squeeze(max(dshape_mat_norm, [], 1));
 min_dshape_mat_norm = squeeze(min(dshape_mat_norm, [], 1));
 
-fig_cov = figure(3);
+fig_cov = figure;
 ax1 = subplot(2,1,1);
 %- out-of-plane
 plot(s, max_dshape_mat_norm(1,:), 'g-', 'LineWidth', 2, 'DisplayName', 'out-of-plane'); hold on;

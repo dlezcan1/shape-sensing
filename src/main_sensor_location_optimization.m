@@ -15,12 +15,14 @@ params.fmincon = false; % whether to use fmincon or not
 % cost function for SLO
 weight_bounds = 1.0; % where to change
 weight_mean = 1 - weight_bounds;
-cost_fn = @(slocs) weight_bounds * cost_sensor_optimization(slocs, 'kc', params.kc, ...
-                            'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L, ...
-                            'type', "tip-bounds", 'ds', params.ds) + ...
-                   weight_mean   * cost_sensor_optimization(slocs, 'kc', params.kc, ...
+cost_fn_bounds = @(slocs) cost_sensor_optimization(slocs, 'kc', params.kc, ...
                             'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L, ...
                             'type', "tip-mean", 'ds', params.ds);
+cost_fn_mean   = @(slocs) cost_sensor_optimization(slocs, 'kc', params.kc, ...
+                            'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L, ...
+                            'type', "tip-bounds", 'ds', params.ds);
+cost_fn = @(slocs) weight_bounds * cost_fn_bounds(slocs) + ...
+                   weight_mean   * cost_fn_mean(slocs);
 
 % Saving name
 save_bool = true;  % change if you'd like to save
@@ -99,7 +101,10 @@ else
     warning('off');
     progressbar('Brute Force Optimization')
     for i = 1:size(data_tbl,1)
+       data_tbl.cost_mean(i) = cost_fn_mean(data_tbl{i,1:params.num_AA}');
+       data_tbl.cost_bounds(i) = cost_fn_bounds(data_tbl{i,1:params.num_AA}');
        data_tbl.cost(i) = cost_fn(data_tbl{i,1:params.num_AA}'); 
+       
        progressbar(i/size(data_tbl,1));
     end
     warning('on');
@@ -125,6 +130,8 @@ if save_bool
     else
         save(outfile, 'params', 'lb', 'ub', 'weight_bounds', 'weight_mean',...
             'data_tbl', 'slocs_optim');
+        writetable(data_tbl, strrep(outfile, '.mat', '.xlsx'));
+        fprintf("Saved data table to: %s\n", strrep(outfile, '.mat', '.xlsx'));
     end
         
     fprintf("Saved data file: %s\n\n", outfile);
