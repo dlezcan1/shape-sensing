@@ -14,35 +14,38 @@
 classdef NeedleShapePublisher
     properties
         % ROS 2 stuff
-        node ros2node;
-        current_pub ros2publisher;
-        predicted_pub ros2publisher;
-        sensor_sub ros2subscriber;
-        sub_timeout {mustBePositive} = 20;
+        node                    ros2node;
+        current_pub             ros2publisher;
+        predicted_pub           ros2publisher;
+        sensor_sub              ros2subscriber;
+        length_sub              ros2subscriber;
+        angle_sub               ros2subscriber;
+        sub_timeout             double {mustBePositive} = 20;
         % FBG Parameters
-        num_samples {mustBePositive} = 200; % number of samples to be gathered
-        needleLength double {mustBePositive}; % length of the entire needle
-        num_channels {mustBeInteger, mustBePositive};
-        num_activeAreas {mustBeInteger, mustBePositive};
-        sensorLocations (1,:) {mustBePositive}; % from the tip
-        sensorCalMatrices (2,:,:);
-        aaReliabilityWeights (1,:);
+        num_samples             {mustBeInteger, mustBePositive} = 200; % number of samples to be gathered
+        needleLength            double {mustBePositive}; % length of the entire needle
+        num_channels            {mustBeInteger, mustBePositive};
+        num_activeAreas         {mustBeInteger, mustBePositive};
+        sensorLocations         (1,:) {mustBePositive}; % from the tip
+        sensorCalMatrices       (2,:,:);
+        aaReliabilityWeights    (1,:);
         % shape sensing parameters
-        needleParams struct;
-        kc_i double = 0.0025;
-        w_init_i (3,1) = [0.0025; 0; 0];
+        needleMechParams        struct;
+        current_L               double = 0;
+        kc_i                    double = 0.0025;
+        w_init_i                (3,1)  = [0.0025; 0; 0];
     end
     methods
         % constructor
         function obj = NeedleShapePublisher(num_chs, num_aas, slocs, calMats, ...
-                            needle_length, needleparams, options)
+                            needle_length, needle_mech_params, options)
             arguments
                 num_chs {mustBeInteger, mustBePositive};
                 num_aas {mustBeInteger, mustBePositive};
                 slocs (1,:); % from the tip
                 calMats (2,:,:);
                 needle_length double {mustBePositive};
-                needleparams struct; % mechanical properties of th needle
+                needle_mech_params struct; % mechanical properties of th needle
                 % ros options
                 options.ns string = '/needle';
                 options.node_name string = '/NeedleShape';
@@ -59,7 +62,7 @@ classdef NeedleShapePublisher
             assert(size(calMats,3) == num_aas); % AA1, AA2, ...
             
             % configure needle parameters
-            obj.needleParams = needleparams;
+            obj.needleMechParams = needle_mech_params;
             obj.needleLength = needle_length;
             obj.num_channels = num_chs;
             obj.num_activeAreas = num_aas;
@@ -130,7 +133,7 @@ classdef NeedleShapePublisher
             idx = 1;
             for i = 1:numel(fbg_msg.layout.dim)
                ch_i = fbg_msg.layout.dim(i).label;
-               size_i = fbg_msg.layout.dim(i).size;
+               size_i = fbg_msg.layout.dim(i).size/fbg_msg.layout.dim(i).stride;
                peaks(i,:) = fbg_msg.data(idx:idx + size_i - 1);
                
                peaks_struct.(ch_i) = fbg_msg.data(idx:idx + size_i - 1);
@@ -146,7 +149,7 @@ classdef NeedleShapePublisher
               Rmat (3,3,:);
           end
           
-          assert(size(pmat,2) == size(Rmat,3));
+          assert(size(pmat,2) == size(Rmat,3)); % they must have the same arclength points
           poseArray = ros2message('geometry_msgs/PoseArray');
           pose_i = ros2message('geometry_msgs/Pose');
           for i = 1:size(pmat,2)
@@ -165,5 +168,29 @@ classdef NeedleShapePublisher
               poseArray.poses(i) = pose_i;
           end
        end
+       % function to parse FBG json into a new object
+       function obj = fromFBGneedlefiles(json_filename, needle_mechanics_file)
+           arguments
+               json_filename         string;
+               needle_mechanics_file string;
+           end
+           % read in the data
+           needle_params    = parse_fbgneedle_json(json_filename);
+           needle_mechanics = load(needle_mechanics_file);
+           
+           % check for fields
+           assert(isfield(needle_mechanics, 'B'));
+           if ~isfield(needle_mechanics, 'Binv')
+               needle_mechanics.Binv = inv(needle_mechanics.B);
+           end
+           obj = NeedleShapePublisher(needle_params.num_channels,...
+                                      needle_params.num_activeAreas,...
+                                      needle_params.slocs_tip,...
+                                      needle_params.aa_calMats,...
+                                      needle_params.length,...
+                                      needle_mechanics);
+           obj.aaReliabilityWeights = needle_params.aa_weights;
+       end
     end
+    
 end 

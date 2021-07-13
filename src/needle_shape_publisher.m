@@ -7,7 +7,7 @@
 clear; 
 %% Setup
 % setup topic names
-namespace = '';
+namespace = '/needle';
 node_name = strcat(namespace,'/needle_shape');
 shapecurr_pub_name = strcat(namespace, '/shape/current');
 shapepred_pub_name = strcat(namespace, '/shape/predicted');
