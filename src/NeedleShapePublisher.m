@@ -18,8 +18,7 @@ classdef NeedleShapePublisher
         current_pub             ros2publisher;
         predicted_pub           ros2publisher;
         sensor_sub              ros2subscriber;
-        length_sub              ros2subscriber;
-        angle_sub               ros2subscriber;
+        needlepose_sub          ros2subscriber;
         sub_timeout             double {mustBePositive} = 20;
         % FBG Parameters
         num_samples             {mustBeInteger, mustBePositive} = 200; % number of samples to be gathered
@@ -79,6 +78,7 @@ classdef NeedleShapePublisher
             curr_pub_name = strcat(options.ns, '/shape/current');
             pred_pub_name = strcat(options.ns, '/shape/predicted');
             sensor_sub_name = strcat(options.ns, '/sensor/processed');
+            needlepose_sub_name = strcat(options.ns, '/pose');
             
             % configure node and publishers
             obj.node = ros2node(node_name);
@@ -87,10 +87,23 @@ classdef NeedleShapePublisher
             obj.predicted_pub = ros2publisher(obj.node, pred_pub_name,...
                     'geometry_msgs/PoseArray');
             obj.sensor_sub = ros2subscriber(obj.node, sensor_sub_name); % std_msgs/Float64MultiArray
+            obj.needlepose_sub = ros2subscriber(obj.node, needlepose_sub_name, @obj.needlepose_cb);
             obj.sub_timeout = options.timeout;
+        end
+        % callback to update needle shape parateters
+        function needlepose_cb(obj, pose_msg)
+           obj.current_L = pose_msg.position.z; 
+           
+           current_orientation = pose_msg.orientation.z;
+           
         end
         % callback to publish the needle shape
         function obj = publish_shape_cb(obj)
+            % check for current length viable
+            if all(obj.current_L <= obj.sensorLocations)
+                return;
+            end
+            
             % gather FBG samples and average
             fbg_peaks = zeros(obj.num_channels, obj.num_activeAreas);
             for i = 1:obj.num_samples
@@ -112,7 +125,7 @@ classdef NeedleShapePublisher
             theta0 = 0;
             curvatures = calibrate_fbgsensors(fbg_peaks, obj.sensorCalMatrices);
             [pmat, wv, Rmat, kc, w_init] = singlebend_needleshape(curvatures, ...
-                                            obj.sensorLocations, obj.needleLength,...
+                                            obj.sensorLocations, obj.current_L,...
                                             obj.kc_i, obj.w_init_i, theta0);
                                         
             % parse the position and Rmat into a geometry_msgs/PoseArray msg
@@ -134,9 +147,11 @@ classdef NeedleShapePublisher
             for i = 1:numel(fbg_msg.layout.dim)
                ch_i = fbg_msg.layout.dim(i).label;
                size_i = fbg_msg.layout.dim(i).size/fbg_msg.layout.dim(i).stride;
-               peaks(i,:) = fbg_msg.data(idx:idx + size_i - 1);
+               if size_i > 0
+                    peaks(i,:) = fbg_msg.data(idx:idx + size_i - 1);
                
-               peaks_struct.(ch_i) = fbg_msg.data(idx:idx + size_i - 1);
+                    peaks_struct.(ch_i) = fbg_msg.data(idx:idx + size_i - 1);
+               end
                idx = idx + size_i;
             end
         end
@@ -167,6 +182,24 @@ classdef NeedleShapePublisher
               
               poseArray.poses(i) = pose_i;
           end
+       end
+       function [pmat, Rmat] = posearray2shape(msg)
+           N = numel(msg.poses);
+           pmat = zeros(3,N);
+           Rmat = zeros(3,3,N);
+           
+           for i = 1:N
+               pmat(:,i) = [msg.poses(i).position.x; 
+                            msg.poses(i).position.y; 
+                            msg.poses(i).position.z];
+           
+               quat = [msg.poses(i).orientation.w;
+                       msg.poses(i).orientation.x;
+                       msg.poses(i).orientation.y;
+                       msg.poses(i).orientation.z]';
+                   
+               Rmat(:,:,i) = quat2rotm(quat);
+           end
        end
        % function to parse FBG json into a new object
        function obj = fromFBGneedlefiles(json_filename, needle_mechanics_file)
