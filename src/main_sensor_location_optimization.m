@@ -12,17 +12,19 @@ params.num_AA = 3;
 params.divide_needle = false; % divide the needle equally in AAs?
 params.fmincon = false; % whether to use fmincon or not
 
-% cost function for SLO
-weight_bounds = 1.0; % where to change
-weight_mean = 1 - weight_bounds;
-cost_fn_bounds = @(slocs) cost_sensor_optimization(slocs, 'kc', params.kc, ...
+% cost functions for SLO
+cost_fn_tip_mean     = @(slocs) cost_sensor_optimization(slocs, 'kc', params.kc, ...
                             'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L, ...
                             'type', "tip-mean", 'ds', params.ds);
-cost_fn_mean   = @(slocs) cost_sensor_optimization(slocs, 'kc', params.kc, ...
+cost_fn_tip_bounds   = @(slocs) cost_sensor_optimization(slocs, 'kc', params.kc, ...
                             'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L, ...
                             'type', "tip-bounds", 'ds', params.ds);
-cost_fn = @(slocs) weight_bounds * cost_fn_bounds(slocs) + ...
-                   weight_mean   * cost_fn_mean(slocs);
+cost_fn_shape_bounds = @(slocs) cost_sensor_optimization(slocs, 'kc', params.kc, ...
+                            'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L, ...
+                            'type', "shape-bounds", 'ds', params.ds);
+cost_fn_shape_mean   = @(slocs) cost_sensor_optimization(slocs, 'kc', params.kc, ...
+                            'w_init', params.w_init, 'sigma', params.sigma, 'L', params.L, ...
+                            'type', "shape-mean", 'ds', params.ds);
 
 % Saving name
 save_bool = true;  % change if you'd like to save
@@ -57,6 +59,7 @@ disp([lb, ub]);
 % fmincon optimization
 if params.fmincon
     % options
+    error("NotImplementedError: fmincon is not supported.");
     warning('off');
     disp("Beginning optimization...");
     tic; 
@@ -101,17 +104,18 @@ else
     warning('off');
     progressbar('Brute Force Optimization')
     for i = 1:size(data_tbl,1)
-       data_tbl.cost_mean(i) = cost_fn_mean(data_tbl{i,1:params.num_AA}');
-       data_tbl.cost_bounds(i) = cost_fn_bounds(data_tbl{i,1:params.num_AA}');
-       data_tbl.cost(i) = cost_fn(data_tbl{i,1:params.num_AA}'); 
+       data_tbl.cost_tip_mean(i)     = cost_fn_tip_mean(data_tbl{i,1:params.num_AA}');
+       data_tbl.cost_tip_bounds(i)   = cost_fn_tip_bounds(data_tbl{i,1:params.num_AA}');
+       data_tbl.cost_shape_mean(i)   = cost_fn_shape_mean(data_tbl{i,1:params.num_AA}');
+       data_tbl.cost_shape_bounds(i) = cost_fn_shape_bounds(data_tbl{i,1:params.num_AA}');
        
        progressbar(i/size(data_tbl,1));
     end
     warning('on');
     
     % determine optimal slocs
-    [min_cost,min_cost_idx] = min(data_tbl.cost);
-    slocs_optim = data_tbl{min_cost_idx,1:params.num_AA};
+%     [min_cost,min_cost_idx] = min(data_tbl.cost);
+%     slocs_optim = data_tbl{min_cost_idx,1:params.num_AA};
 end
 
 
@@ -125,11 +129,11 @@ if save_bool
     outfile = filename_no_overwrite(outfile);
 
     if params.fmincon
-        save(outfile, 'params', 'lb', 'ub', 'weight_bounds', 'weight_mean',...
+        save(outfile, 'params', 'lb', 'ub',...
             'slocs_optim', 'fval', 'exitflag', 'options');
     else
-        save(outfile, 'params', 'lb', 'ub', 'weight_bounds', 'weight_mean',...
-            'data_tbl', 'slocs_optim');
+        save(outfile, 'params', 'lb', 'ub',...
+            'data_tbl');
         writetable(data_tbl, strrep(outfile, '.mat', '.xlsx'));
         fprintf("Saved data table to: %s\n", strrep(outfile, '.mat', '.xlsx'));
     end
