@@ -4,7 +4,8 @@
 %
 % - written by: Dimitri Lezcano
 
-function [pos, wv, Rmat, kc, w_init] = singlebend_needleshape(curvatures, aa_tip_locs, L, kc_i, w_init_i, theta0)
+function [pos, wv, Rmat, kc, w_init] = singlebend_needleshape(curvatures, aa_tip_locs, ...
+                                L, kc_i, w_init_i, theta0, weights)
 % Input:
 %   - curvatures: list of x-y curvatures measured at each of the AA locations
 %           ( a #AA x 2 matrix ) (1/m)
@@ -17,12 +18,13 @@ function [pos, wv, Rmat, kc, w_init] = singlebend_needleshape(curvatures, aa_tip
     
     %% Arguments
     arguments
-        curvatures (:, 2) {mustBeNumeric};
+        curvatures (2, :) {mustBeNumeric};
         aa_tip_locs (1,:) {mustBeNumeric};
         L double;
         kc_i double;
         w_init_i (3, 1) {mustBeNumeric} = [kc_i; 0; 0]; 
         theta0 double = 0;
+        weights (1,:) {mustBeEqualSize(weights,aa_tip_locs, 2)} = ones(1, length(aa_tip_locs));
     end
 
     %% material properties
@@ -50,8 +52,8 @@ function [pos, wv, Rmat, kc, w_init] = singlebend_needleshape(curvatures, aa_tip
     % get the arclength indices that are valid
     aa_base_locs_valid = aa_base_locs(aa_base_locs >= 0);
     [~, s_idx_aa] = min(abs(s' - aa_base_locs_valid));
-    curvs_aa = curvatures(aa_base_locs >= 0, :)*1e-3; % convert curvatures to 1/mm
-    curvs_aa = [curvs_aa, zeros(size(curvs_aa, 1), 1)];
+    curvs_aa = curvatures(:, aa_base_locs >= 0)*1e-3; % convert curvatures to 1/mm
+    curvs_aa = [curvs_aa; zeros(1,size(curvs_aa, 2))];
     s_aa = s(s_idx_aa);
         
     
@@ -59,7 +61,7 @@ function [pos, wv, Rmat, kc, w_init] = singlebend_needleshape(curvatures, aa_tip
     % initial cost values
     eta = [w_init_i; kc_i];
     scalef0 = 1;
-    Cval = costfn_shape_singlebend(eta, curvs_aa', s_idx_aa, ds, length(s), B, Binv, scalef0);
+    Cval = costfn_shape_singlebend(eta, curvs_aa, s_idx_aa, ds, length(s), B, Binv, scalef0, weights);
     scalef = 1/Cval;
     
     % optimization
@@ -69,9 +71,9 @@ function [pos, wv, Rmat, kc, w_init] = singlebend_needleshape(curvatures, aa_tip
     
     oldopts = optimset('fmincon');
     options = optimset(oldopts,'Algorithm','interior-point','TolFun',1e-8,'TolX',1e-8,...
-        'MaxFunEvals',10000);
-    [x, fval, exitflag] = fmincon( @(x) costfn_shape_singlebend(x, curvs_aa',...
-        s_idx_aa, ds, length(s), B, Binv, scalef),...
+        'MaxFunEvals',10000, 'Display', 'off');
+    [x, fval, exitflag] = fmincon( @(x) costfn_shape_singlebend(x, curvs_aa,...
+        s_idx_aa, ds, length(s), B, Binv, scalef, weights),...
         x0, [], [], [], [], LB, UB, [], options);
     
     % unpack optimization results
@@ -89,7 +91,8 @@ end
 
 %% Helper functions
 % cost function for needle shape
-function y = costfn_shape_singlebend(eta,data,s_index_meas,ds,N,B,Binv,scalef) 
+function y = costfn_shape_singlebend(eta,data,s_index_meas,ds,N,B,Binv,scalef,weights) 
+    weights = weights/sum(weights, 'all');
     % unpack the variables
     w_init = eta(1:3); 
     kc = eta(4); 
@@ -110,6 +113,6 @@ function y = costfn_shape_singlebend(eta,data,s_index_meas,ds,N,B,Binv,scalef)
 
     % exclude torsion 
     yv = wv(1:2,s_index_meas) - data(1:2,:); 
-    y = norm(yv,'fro')^2*scalef; 
+    y = norm(yv.*weights,'fro')^2*scalef; 
 
 end

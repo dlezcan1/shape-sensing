@@ -15,7 +15,7 @@ tic;
 % Stainless Steel 304
 Emod = 200e9*1e-6; % 200 GPa, conversion from N/m^2 to N/mm^2
 Pratio = 0.29; % Poisson's ratio
-diam = 0.9; % in mm
+diam = 1.27; % in mm
 Ibend = pi*diam^4/64;
 
 Gmod = Emod/2/(1+Pratio);
