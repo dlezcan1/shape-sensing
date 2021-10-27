@@ -27,6 +27,11 @@ for i = 1:N-1
     end
 end
 
+% don't perform unnecessary computations
+if nargout == 1
+    return;
+end
+
 % orientation and position
 Rmat = zeros(3,3,N);
 Rmat(:,:,1) = Rot_x(theta0);

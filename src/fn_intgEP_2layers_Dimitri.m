@@ -14,7 +14,7 @@ function [wv,s_crit] = fn_intgEP_2layers_Dimitri(kc1,kc2,z_crit,w_init, theta0,L
 % - written by Jin Seob (Jesse) Kim
 % - edited by Dimitri Lezcano
 
-s = [s0:ds:L]; % mm
+s = s0:ds:L; % mm
 N = length(s);
 w_init1 = [kc1; 0; 0];
 
@@ -27,7 +27,6 @@ s_crit = s(ix_crit);
 
 if s_crit == -1 % insertion is too short
     wv = w1;
-    
 else
 
     s1 = s(1:ix_crit);
