@@ -6,7 +6,7 @@
 % - written by: Dimitri Lezcano
 
 function [pos, wv, Rmat, kc, w_init] = singlebend_singlelayer_needleshape(curvatures, aa_tip_locs, ...
-                                L, kc_i, w_init_i, theta0, weights)
+                                needle_mechparams, L, kc_i, w_init_i, theta0, weights)
 % Input:
 %   - curvatures: list of x-y curvatures measured at each of the AA locations
 %           ( a #AA x 2 matrix ) (1/m)
@@ -21,6 +21,7 @@ function [pos, wv, Rmat, kc, w_init] = singlebend_singlelayer_needleshape(curvat
     arguments
         curvatures (2, :) {mustBeNumeric};
         aa_tip_locs (1,:) {mustBeNumeric};
+        needle_mechparams struct;
         L double;
         kc_i double;
         w_init_i (3, 1) {mustBeNumeric} = [kc_i; 0; 0]; 
@@ -29,21 +30,8 @@ function [pos, wv, Rmat, kc, w_init] = singlebend_singlelayer_needleshape(curvat
     end
 
     %% material properties
-    % Stainless Steel 304
-    Emod = 200e9*1e-6; % 200 GPa, conversion from N/m^2 to N/mm^2
-    Pratio = 0.29; % Poisson's ratio
-    diam = 1.27; % in mm
-    Ibend = pi*diam^4/64;
-
-    Gmod = Emod/2/(1+Pratio);
-    Jtor = pi*diam^4/32;
-
-    BendStiff = Emod*Ibend;
-    TorStiff = Gmod*Jtor;
-
-    B = diag([BendStiff,BendStiff,TorStiff]);
-    Binv = inv(B);
-
+    B = needle_mechparams.B;
+    Binv = needle_mechparams.Binv;
     
     %% Needle arclength set-up
     aa_base_locs = L - aa_tip_locs;
