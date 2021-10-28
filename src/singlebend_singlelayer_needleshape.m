@@ -43,6 +43,7 @@ function [pos, wv, Rmat, kc, w_init] = singlebend_singlelayer_needleshape(curvat
     [~, s_idx_aa] = min(abs(s' - aa_base_locs_valid));
     curvs_aa = curvatures(:, aa_base_locs >= 0)*1e-3; % convert curvatures to 1/mm
     curvs_aa = [curvs_aa; zeros(1,size(curvs_aa, 2))];
+    weights = weights(aa_base_locs >= 0);
     s_aa = s(s_idx_aa);
         
     

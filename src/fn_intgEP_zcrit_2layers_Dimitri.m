@@ -1,4 +1,4 @@
-function [wv,pmat,Rmat] = fn_intgEP_zcrit_2layers_Dimitri(w_init,kc1,kc2,z_crit,theta0,s0,ds,N,B,Binv)
+function [wv,pmat,Rmat,s_crit] = fn_intgEP_zcrit_2layers_Dimitri(w_init,kc1,kc2,z_crit,theta0,s0,ds,N,B,Binv)
     %
     % integration of Euler-Poincare equation for two layers
     % kc1, kc2: kappa_c values for the layers
@@ -18,7 +18,7 @@ function [wv,pmat,Rmat] = fn_intgEP_zcrit_2layers_Dimitri(w_init,kc1,kc2,z_crit,
     %% determine s_crit (90 mm)
     [wv1,pmat1, Rmat1] = fn_intgEP_v1_1layer(w_init,kc1,theta0,s0,ds,N,B,Binv);
     if max(pmat1(3,:)) <= z_crit % single layer insertion
-        wv = wv1; pmat = pmat1; Rmat = Rmat1;
+        wv = wv1; pmat = pmat1; Rmat = Rmat1; s_crit = -1;
         return; 
     end
     ix_crit_v = find(abs(pmat1(3,:) - z_crit) <= ds/2); 

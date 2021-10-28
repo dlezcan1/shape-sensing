@@ -4,7 +4,7 @@
 %
 % - written by: Dimitri Lezcano
 
-function [pos, wv, Rmat, kc1, kc2, w_init] = singlebend_doublelayer_needleshape(curvatures, aa_tip_locs, ...
+function [pos, wv, Rmat, kc1, kc2, w_init, s_crit] = singlebend_doublelayer_needleshape(curvatures, aa_tip_locs, ...
                                 needle_mechparams, L, z_crit, kc1_i, kc2_i, w_init_i, theta0, weights)
 % Input:
 %   - curvatures: list of x-y curvatures measured at each of the AA locations
@@ -45,6 +45,7 @@ function [pos, wv, Rmat, kc1, kc2, w_init] = singlebend_doublelayer_needleshape(
     [~, s_idx_aa] = min(abs(s' - aa_base_locs_valid));
     curvs_aa = curvatures(:, aa_base_locs >= 0)*1e-3; % convert curvatures to 1/mm
     curvs_aa = [curvs_aa; zeros(1,size(curvs_aa, 2))];
+    weights = weights(aa_base_locs >= 0);
     s_aa = s(s_idx_aa);
         
     
@@ -52,19 +53,20 @@ function [pos, wv, Rmat, kc1, kc2, w_init] = singlebend_doublelayer_needleshape(
     % initial cost values
     eta = [w_init_i; kc1_i; kc2_i];
     scalef0 = 1;
-    Cval = costfn_shape_singlebend_2layer(eta, curvs_aa, s_idx_aa, ds, length(s), B, Binv, scalef0, weights);
+    Cval = costfn_shape_singlebend_2layer(eta, curvs_aa, s_idx_aa, z_crit,...
+        theta0, ds, length(s), B, Binv, scalef0, weights);
     scalef = 1/Cval;
     
     % optimization
     x0 = eta; % initial value
-    LB = [-0.01*ones(3,1);0]; % lower bound
-    UB = [0.01*ones(3,1);0.01]; % upper bound
+    LB = [-0.01*ones(3,1);0;0]; % lower bound
+    UB = [0.01*ones(3,1);0.01;0.01]; % upper bound
     
     oldopts = optimset('fmincon');
     options = optimset(oldopts,'Algorithm','interior-point','TolFun',1e-8,'TolX',1e-8,...
         'MaxFunEvals',10000, 'Display', 'off');
     [x, fval, exitflag] = fmincon( @(x) costfn_shape_singlebend_2layer(x, curvs_aa,...
-        s_idx_aa, theta0, ds, length(s), B, Binv, scalef, weights),...
+        s_idx_aa, z_crit, theta0, ds, length(s), B, Binv, scalef, weights),...
         x0, [], [], [], [], LB, UB, [], options);
     
     % unpack optimization results
@@ -73,8 +75,11 @@ function [pos, wv, Rmat, kc1, kc2, w_init] = singlebend_doublelayer_needleshape(
     kc2 = x(5);
     
     %% Generate needle shape
-    [wv, pos, Rmat] = fn_intgEP_v1_2layers(w_init, kc1, kc2,z_crit, theta0, 0, ds, length(s), B, Binv);
-    
+    [wv, pos, Rmat, s_crit] = fn_intgEP_zcrit_2layers_Dimitri(w_init, kc1, kc2, z_crit,...
+        theta0, 0, ds, length(s), B, Binv);
+    if max(pos(3,:)) <= z_crit
+        kc2 = -1; 
+    end
     
 end
 
