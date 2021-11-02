@@ -5,7 +5,7 @@
 % - written by: Dimitri Lezcano
 
 function [pos, wv, Rmat, kc, w_init] = doublebend_singlelayer_needleshape(curvatures, aa_tip_locs, ...
-                                needle_mechparams, s_turn, L, kc_i, w_init_i, theta0, weights)
+                                needle_mechparams, s_turn, L, kc_i, w_init_i, theta0, thetaz, weights)
 % Input:
 %   - curvatures: list of x-y curvatures measured at each of the AA locations
 %           ( a #AA x 2 matrix ) (1/m)
@@ -27,12 +27,13 @@ function [pos, wv, Rmat, kc, w_init] = doublebend_singlelayer_needleshape(curvat
         kc_i double;
         w_init_i (3, 1) {mustBeNumeric} = [kc_i; 0; 0]; 
         theta0 double = 0;
+        thetaz double = 0;
         weights (1,:) {mustBeEqualSize(weights,aa_tip_locs, 2)} = ones(1, length(aa_tip_locs));
     end
     
     %% Argument validation
-    if s_turn <= L
-        error("turn value is <= L, use single-bend single-layer function.");
+    if s_turn >= L
+        error("turn value is >= L, use single-bend single-layer function.");
     end
 
     %% material properties
@@ -60,7 +61,8 @@ function [pos, wv, Rmat, kc, w_init] = doublebend_singlelayer_needleshape(curvat
     % initial cost values
     eta = [w_init_i; kc_i];
     scalef0 = 1;
-    Cval = costfn_shape_doublebend_1layer(eta, curvs_aa, s_idx_aa, s_idx_turn, ds, length(s), B, Binv, scalef0, weights);
+    Cval = costfn_shape_doublebend_1layer(eta, curvs_aa, s_idx_aa, s_idx_turn,...
+        ds, length(s), B, Binv, scalef0, weights);
     scalef = 1/Cval;
     
     % optimization
@@ -72,7 +74,7 @@ function [pos, wv, Rmat, kc, w_init] = doublebend_singlelayer_needleshape(curvat
     options = optimset(oldopts,'Algorithm','interior-point','TolFun',1e-8,'TolX',1e-8,...
         'MaxFunEvals',10000, 'Display', 'off');
     [x, fval, exitflag] = fmincon( @(x) costfn_shape_doublebend_1layer(x, curvs_aa,...
-        s_idx_aa, ds, length(s), B, Binv, scalef, weights),...
+        s_idx_aa, s_idx_turn, ds, length(s), B, Binv, scalef, weights),...
         x0, [], [], [], [], LB, UB, [], options);
     
     % unpack optimization results
@@ -80,11 +82,35 @@ function [pos, wv, Rmat, kc, w_init] = doublebend_singlelayer_needleshape(curvat
     kc = x(4);
     
     %% Generate needle shape
-    w0 = kc * (1 - s/L).^2;
-    w0_prime = -2*kc/L * (1 - s/L);
+    L = (length(s)-1)*ds; % in mm
+    
+    s1 = s(1:s_idx_turn);
+    s2 = s(s_idx_turn:end);
+
+    kc1 = kc*((s1(end) - s1(1))/L)^(2/3);
+    kc2 = kc*((s2(end) - s2(1))/L)^(2/3);
+
+    % intrinsic curvature kappa_0 (quadratic)
+    k0_1    = kc1*(1 - s1/L).^2;
+    k0_2    = -kc2*(1 - s2/L).^2;
+    k0_turn = (k0_1(end) + k0_2(1))/2; %0;
+    k0      = [k0_1(1:end-1),k0_turn,k0_2(2:end)];
+
+    k0_prime1     = -2*kc1/L*(1 - s1/L);
+    k0_prime2     = 2*kc2/L*(1 - s2/L);
+    k0_prime_peak = (k0_2(2) - k0_1(end-1))/2/ds; 
+    k0_prime      = [k0_prime1(1:end-1),k0_prime_peak,k0_prime2(2:end)];
+
+    % intrinsic curvature \omega_0
+    w0       = [k0;       zeros(2, length(s))];
+    w0_prime = [k0_prime; zeros(2, length(s))];
     
     [wv, pos, Rmat] = fn_intgEP_w0_Dimitri(w_init, w0, w0_prime, theta0, 0, ds, length(s), B, Binv);
     
+    % rotate by thetaz
+    Rz = Rot_z(thetaz);
+    pos = Rz * pos;
+    Rmat = pagemtimes(Rz, Rmat);
     
 end
 
@@ -105,22 +131,22 @@ function y = costfn_shape_doublebend_1layer(eta,data,s_index_meas,s_idx_turn,ds,
     kc1 = kc*((s1(end) - s1(1))/L)^(2/3);
     kc2 = kc*((s2(end) - s2(1))/L)^(2/3);
 
-    % intrinsic curvature kappa_0 (quadratic)
-    k0_1 = kc1*(1 - s1/L).^2;
-    k0_2 = -kc2*(1 - s2/L).^2;
+   % intrinsic curvature kappa_0 (quadratic)
+    k0_1    = kc1*(1 - s1/L).^2;
+    k0_2    = -kc2*(1 - s2/L).^2;
     k0_turn = (k0_1(end) + k0_2(1))/2; %0;
-    k0 = [k0_1(1:end-1),k0_turn,k0_2(2:end)];
+    k0      = [k0_1(1:end-1),k0_turn,k0_2(2:end)];
 
-    k0prime1 = -2*kc1/L*(1 - s1/L);
-    k0prime2 = 2*kc2/L*(1 - s2/L);
-    k0prime_peak = (k0_2(2) - k0_1(end-1))/2/ds; 
-    k0prime = [k0prime1(1:end-1),k0prime_peak,k0prime2(2:end)];
+    k0_prime1     = -2*kc1/L*(1 - s1/L);
+    k0_prime2     = 2*kc2/L*(1 - s2/L);
+    k0_prime_peak = (k0_2(2) - k0_1(end-1))/2/ds; 
+    k0_prime      = [k0_prime1(1:end-1),k0_prime_peak,k0_prime2(2:end)];
 
     % intrinsic curvature \omega_0
-    w0 = [k0;zeros(size(s));zeros(size(s))];
-    w0prime = [k0prime;zeros(size(s));zeros(size(s))];
-    wv = fn_intgEP_w0_Dimitri(w_init,w0,w0prime,ds,N,B,Binv);
-
+    w0       = [k0;       zeros(2, length(s))];
+    w0_prime = [k0_prime; zeros(2, length(s))];
+    wv = fn_intgEP_w0_Dimitri(w_init, w0, w0_prime, 0, 0, ds, N, B, Binv);
+    
     % exclude torsion
     yv = wv(1:2,s_index_meas) - data(1:2,:);
     y = norm(yv.*weights,'fro')^2*scalef;
